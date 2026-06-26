@@ -432,6 +432,33 @@ function createAmbientParticles(scene: Object3D) {
 }
 
 function updateAnimations(dt: number) {
+  // Piece entrance animation
+  if (entranceActive) {
+    let allDone = true;
+    for (const d of entranceDrops) {
+      d.elapsed += dt;
+      if (d.elapsed < d.delay) { allDone = false; continue; }
+      const t = Math.min(1, (d.elapsed - d.delay) / d.duration);
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const startY = d.targetY + 0.4;
+      d.mesh.position.y = startY + (d.targetY - startY) * ease;
+      if (d.crown) {
+        const crownStart = d.crownTargetY + 0.4;
+        d.crown.position.y = crownStart + (d.crownTargetY - crownStart) * ease;
+      }
+      if (t >= 1) {
+        d.mesh.position.y = d.targetY;
+        if (d.crown) d.crown.position.y = d.crownTargetY;
+      } else { allDone = false; }
+    }
+    if (allDone && entranceDrops.length > 0) {
+      entranceActive = false;
+      entranceDrops = [];
+      // Play a landing sound
+      playTone(220, 0.15, 0.08, 'triangle');
+    }
+  }
+
   // Piece move animations
   for (let i=activeAnims.length-1; i>=0; i--) {
     const a = activeAnims[i];
@@ -552,6 +579,59 @@ function updateCelebration(dt: number) {
 function clearChainPath() {
   for (const m of chainPathMeshes) boardGroup.remove(m);
   chainPathMeshes = [];
+}
+
+// ============================================================
+// MOVE HINT SYSTEM
+// ============================================================
+function showHint() {
+  clearHint();
+  if (screen !== 'playing' || turn !== 'red' || aiThinking || animating) return;
+  const moves = getAllMoves(board, 'red');
+  if (moves.length === 0) return;
+  // Use shallow minimax to find best player move
+  let bestMove = moves[0], bestScore = -Infinity;
+  for (const m of moves) {
+    const nb = executeMove(board, m);
+    const score = minimax(nb, 2, -Infinity, Infinity, false, 'red');
+    if (score > bestScore || (score === bestScore && Math.random() > 0.5)) { bestScore = score; bestMove = m; }
+  }
+  const fromPos = cellToWorld(bestMove.from.r, bestMove.from.c);
+  const toPos = cellToWorld(bestMove.to.r, bestMove.to.c);
+  // Ring around suggested piece
+  const fGeo = new RingGeometry(PIECE_RADIUS + 0.005, PIECE_RADIUS + 0.015, 24);
+  const fMat = new MeshBasicMaterial({ color: new Color('#00ff88'), side: DoubleSide, transparent: true, opacity: 0.8 });
+  const fMesh = new Mesh(fGeo, fMat);
+  fMesh.position.set(fromPos.x, 0.015, fromPos.z);
+  fMesh.rotation.x = -Math.PI / 2;
+  boardGroup.add(fMesh);
+  hintMeshes.push(fMesh);
+  // Target cell highlight
+  const tGeo = new BoxGeometry(CELL_SIZE - 0.005, 0.004, CELL_SIZE - 0.005);
+  const tMat = new MeshBasicMaterial({ color: new Color('#00ff88'), transparent: true, opacity: 0.5 });
+  const tMesh = new Mesh(tGeo, tMat);
+  tMesh.position.set(toPos.x, 0.012, toPos.z);
+  boardGroup.add(tMesh);
+  hintMeshes.push(tMesh);
+  // Connecting line from piece to target
+  const dx = toPos.x - fromPos.x, dz = toPos.z - fromPos.z;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  const angle = Math.atan2(dx, dz);
+  const lGeo = new BoxGeometry(0.005, 0.002, len);
+  const lMat = new MeshBasicMaterial({ color: new Color('#00ff88'), transparent: true, opacity: 0.3 });
+  const lMesh = new Mesh(lGeo, lMat);
+  lMesh.position.set(fromPos.x + dx * 0.5, 0.013, fromPos.z + dz * 0.5);
+  lMesh.rotation.y = angle;
+  boardGroup.add(lMesh);
+  hintMeshes.push(lMesh);
+  hintTimer = 2.5;
+  panels.showToast('Hint: try this move!');
+}
+
+function clearHint() {
+  for (const h of hintMeshes) { boardGroup.remove(h); h.geometry.dispose(); (h.material as MeshBasicMaterial).dispose(); }
+  hintMeshes = [];
+  hintTimer = 0;
 }
 
 function showChainPath(move: Move) {
@@ -690,6 +770,14 @@ let selectedLiftTarget: Pos|null = null;
 
 // Auto-select tracking
 let lastAutoSelectCount = -1;
+
+// Piece entrance animation
+let entranceActive = false;
+let entranceDrops: { mesh: Mesh; crown: Mesh|null; targetY: number; crownTargetY: number; delay: number; elapsed: number; duration: number; }[] = [];
+
+// Move hint system
+let hintTimer = 0;
+let hintMeshes: Mesh[] = [];
 
 // 3D objects
 let boardGroup: Group;
@@ -858,8 +946,9 @@ class Panels {
   }
 
   updStats() {
+    const winRate = save.totalGames > 0 ? Math.round(save.totalWins / save.totalGames * 100) : 0;
     this.st('stats','stat-games',`Games Played: ${save.totalGames}`);
-    this.st('stats','stat-wins',`Wins: ${save.totalWins}`);
+    this.st('stats','stat-wins',`Wins: ${save.totalWins} (${winRate}%)`);
     this.st('stats','stat-captures',`Total Captures: ${save.totalCaptures}`);
     this.st('stats','stat-kings',`Kings Crowned: ${save.totalKings}`);
     this.st('stats','stat-streak',`Best Streak: ${save.bestStreak}`);
@@ -867,6 +956,9 @@ class Panels {
     this.st('stats','stat-fastest',`Fastest Win: ${save.fastestWin===Infinity?'--':Math.floor(save.fastestWin)+'s'}`);
     this.st('stats','stat-flawless',`Flawless Wins: ${save.flawlessWins}`);
     this.st('stats','stat-modes',`Modes Played: ${save.modesPlayed?.size||0}`);
+    this.st('stats','stat-easy',`Easy Wins: ${save.easyWins}`);
+    this.st('stats','stat-med',`Medium Wins: ${save.medWins}`);
+    this.st('stats','stat-hard',`Hard Wins: ${save.hardWins}`);
   }
 
   updSkins() {
@@ -983,6 +1075,24 @@ function startGame() {
   syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
   screen='playing'; panels.vis();
   panels.updHistory();
+
+  // Piece entrance animation — cascade pieces from above
+  entranceDrops = [];
+  entranceActive = true;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const pm = pieceMeshes[r][c];
+    if (pm) {
+      const targetY = pm.position.y;
+      pm.position.y = targetY + 0.4;
+      const delay = (r * 8 + c) * 0.02 + Math.random() * 0.03;
+      entranceDrops.push({
+        mesh: pm, crown: crownMeshes[r][c],
+        targetY, crownTargetY: PIECE_HEIGHT + 0.012,
+        delay, elapsed: 0, duration: 0.25 + Math.random() * 0.1,
+      });
+      if (crownMeshes[r][c]) crownMeshes[r][c]!.position.y += 0.4;
+    }
+  }
   // Start ambient drone
   startDrone();
   if (save.musicOn) setDroneLevel(0.04);
@@ -1058,10 +1168,12 @@ function applyPlayerMove(move: Move) {
     save.kingCaptures+=(wasKing?move.captures.length:0);
     sfxCapture();
     nonCaptureMoveCount=0;
+    if (move.captures.length >= 2) panels.showToast(`${move.captures.length}x Chain Combo!`);
   } else { sfxMove(); nonCaptureMoveCount++; }
   if (!wasKing&&board[move.to.r][move.to.c].king) { playerKingsThisGame++; sfxKing(); }
   selected=null; validMoves=[]; clearHighlights();
   selectedLiftTarget=null; arrowMoveIndex=-1;
+  clearHint();
 
   // Log and show last move
   logMove(move, 'red');
@@ -1487,6 +1599,16 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
       const info=panels.entities.get('toast'); if (info?.entity?.object3D) info.entity.object3D.visible=false;
     }}
 
+    // Hint timer + pulse
+    if (hintTimer > 0) {
+      hintTimer -= dt;
+      if (hintTimer <= 0) clearHint();
+      else {
+        const hp = 0.4 + Math.sin(Date.now() * 0.008) * 0.3;
+        for (const h of hintMeshes) (h.material as MeshBasicMaterial).opacity = hp;
+      }
+    }
+
     // Animations
     updateAnimations(dt);
     updateCelebration(dt);
@@ -1642,6 +1764,10 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
           sfxClick();
           updateArrowHighlight();
         }
+      }
+      // H key for move hint
+      if (inp.keyboard.getKeyDown('KeyH')&&screen==='playing'&&turn==='red'&&!aiThinking&&!animating) {
+        showHint();
       }
     }
   }

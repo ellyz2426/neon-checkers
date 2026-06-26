@@ -205,7 +205,7 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "- Tab: Cycle movable pieces"
+              "- H: Get a move hint"
             ],
             "properties": {
               "fontsize": "9",
@@ -217,7 +217,7 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "- Enter/Space: Confirm move"
+              "- Tab: Cycle movable pieces"
             ],
             "properties": {
               "fontsize": "9",
@@ -229,13 +229,37 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "- R: Replay after game over"
+              "- Arrows: Cycle move targets"
             ],
             "properties": {
               "fontsize": "9",
               "color": "#888888"
             },
             "dataUid": "uid-21"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- Enter/Space: Confirm move"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-22"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- R: Replay after game over"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-23"
           },
           {
             "sourceTag": "text",
@@ -248,7 +272,7 @@
               "color": "#00ff88",
               "margintop": "3"
             },
-            "dataUid": "uid-22"
+            "dataUid": "uid-24"
           },
           {
             "sourceTag": "text",
@@ -260,7 +284,7 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-23"
+            "dataUid": "uid-25"
           },
           {
             "sourceTag": "text",
@@ -272,7 +296,7 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-24"
+            "dataUid": "uid-26"
           },
           {
             "sourceTag": "text",
@@ -284,7 +308,7 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-25"
+            "dataUid": "uid-27"
           },
           {
             "sourceTag": "text",
@@ -296,7 +320,7 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-26"
+            "dataUid": "uid-28"
           },
           {
             "sourceTag": "text",
@@ -308,7 +332,19 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-27"
+            "dataUid": "uid-29"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- Press H for AI-suggested move"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-30"
           }
         ],
         "properties": {
@@ -335,7 +371,7 @@
           "cursor": "pointer",
           "margintop": "4"
         },
-        "dataUid": "uid-28"
+        "dataUid": "uid-31"
       }
     ],
     "properties": {
@@ -354,7 +390,7 @@
         "column": 0
       },
       "end": {
-        "line": 29,
+        "line": 32,
         "column": 12
       }
     },
@@ -374,7 +410,7 @@
         "column": 2
       },
       "end": {
-        "line": 27,
+        "line": 30,
         "column": 14
       }
     },
@@ -535,7 +571,7 @@
       },
       "end": {
         "line": 18,
-        "column": 73
+        "column": 66
       }
     },
     "uid-20": {
@@ -555,7 +591,7 @@
       },
       "end": {
         "line": 20,
-        "column": 73
+        "column": 74
       }
     },
     "uid-22": {
@@ -565,7 +601,7 @@
       },
       "end": {
         "line": 21,
-        "column": 65
+        "column": 73
       }
     },
     "uid-23": {
@@ -575,7 +611,7 @@
       },
       "end": {
         "line": 22,
-        "column": 80
+        "column": 73
       }
     },
     "uid-24": {
@@ -585,7 +621,7 @@
       },
       "end": {
         "line": 23,
-        "column": 81
+        "column": 65
       }
     },
     "uid-25": {
@@ -595,7 +631,7 @@
       },
       "end": {
         "line": 24,
-        "column": 81
+        "column": 80
       }
     },
     "uid-26": {
@@ -605,7 +641,7 @@
       },
       "end": {
         "line": 25,
-        "column": 75
+        "column": 81
       }
     },
     "uid-27": {
@@ -615,16 +651,46 @@
       },
       "end": {
         "line": 26,
-        "column": 79
+        "column": 81
       }
     },
     "uid-28": {
       "start": {
+        "line": 27,
+        "column": 4
+      },
+      "end": {
+        "line": 27,
+        "column": 75
+      }
+    },
+    "uid-29": {
+      "start": {
         "line": 28,
-        "column": 2
+        "column": 4
       },
       "end": {
         "line": 28,
+        "column": 79
+      }
+    },
+    "uid-30": {
+      "start": {
+        "line": 29,
+        "column": 4
+      },
+      "end": {
+        "line": 29,
+        "column": 77
+      }
+    },
+    "uid-31": {
+      "start": {
+        "line": 31,
+        "column": 2
+      },
+      "end": {
+        "line": 31,
         "column": 108
       }
     }
