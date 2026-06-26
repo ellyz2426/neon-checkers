@@ -1,0 +1,14 @@
+<container flexDirection="column" alignItems="center" gap="3" padding="6" paddingLeft="8" paddingRight="8">
+  <text fontSize="10" fontWeight="bold" color="#ffaa00">MOVE LOG</text>
+  <container flexDirection="column" gap="2" alignItems="flex-start" marginTop="2">
+    <text name="move-0" fontSize="8" color="#888888">---</text>
+    <text name="move-1" fontSize="8" color="#888888">---</text>
+    <text name="move-2" fontSize="8" color="#888888">---</text>
+    <text name="move-3" fontSize="8" color="#888888">---</text>
+    <text name="move-4" fontSize="8" color="#888888">---</text>
+    <text name="move-5" fontSize="8" color="#888888">---</text>
+    <text name="move-6" fontSize="8" color="#888888">---</text>
+    <text name="move-7" fontSize="8" color="#888888">---</text>
+  </container>
+  <text name="move-count" fontSize="8" color="#555555" marginTop="2">Moves: 0</text>
+</container>

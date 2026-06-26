@@ -1,7 +1,9 @@
 // ============================================================
 // NEON CHECKERS VR - Holographic Draughts Game
 // Built with IWSDK 0.4.x - playable in VR and browser
-// Round 2: animations, particles, countdown, undo, hover effects
+// Round 3: board coords, move history, last-move highlight,
+//   turn transition flash, enhanced gameover, ambient hum,
+//   move counter, improved visuals
 // ============================================================
 
 import {
@@ -41,6 +43,10 @@ const BOARD_OFFSET = -(BOARD_SIZE * CELL_SIZE) / 2 + CELL_SIZE / 2;
 const PIECE_RADIUS = 0.04;
 const PIECE_HEIGHT = 0.015;
 const BOARD_Y = 0.85;
+
+// Column labels (A-H) and row labels (1-8)
+const COL_LABELS = ['A','B','C','D','E','F','G','H'];
+const ROW_LABELS = ['8','7','6','5','4','3','2','1'];
 
 // ============================================================
 // THEMES
@@ -157,6 +163,37 @@ const sfxSelect = () => playTone(600, 0.08, 0.1, 'triangle');
 const sfxCountdown = () => playTone(523, 0.15, 0.12, 'triangle');
 const sfxCountdownGo = () => { playTone(1047, 0.2, 0.15); playTone(1319, 0.15, 0.12); };
 const sfxUndo = () => { playTone(330, 0.1, 0.1, 'triangle'); playTone(262, 0.12, 0.08, 'triangle'); };
+const sfxTurnChange = () => playTone(350, 0.08, 0.06, 'sine');
+
+// Ambient drone — subtle continuous hum
+let droneOsc: OscillatorNode|null = null;
+let droneGain: GainNode|null = null;
+let droneActive = false;
+
+function startDrone() {
+  if (droneActive) return;
+  try {
+    const ctx = ensureAudio();
+    droneOsc = ctx.createOscillator();
+    droneGain = ctx.createGain();
+    droneOsc.type = 'sine';
+    droneOsc.frequency.value = 55; // low hum
+    droneGain.gain.value = 0;
+    droneOsc.connect(droneGain);
+    droneGain.connect(ctx.destination);
+    droneOsc.start();
+    droneActive = true;
+  } catch {}
+}
+
+function setDroneLevel(vol: number) {
+  if (droneGain && droneActive) {
+    try {
+      const ctx = ensureAudio();
+      droneGain.gain.setTargetAtTime(vol, ctx.currentTime, 0.5);
+    } catch {}
+  }
+}
 
 // ============================================================
 // BOARD LOGIC
@@ -235,6 +272,22 @@ function checkWinnerStatic(b: Cell[][]): PieceColor|null {
 }
 
 // ============================================================
+// MOVE NOTATION
+// ============================================================
+function posToNotation(p: Pos): string {
+  return COL_LABELS[p.c] + ROW_LABELS[p.r];
+}
+function moveToNotation(m: Move, who: PieceColor): string {
+  const prefix = who === 'red' ? 'You' : 'AI';
+  const from = posToNotation(m.from);
+  const to = posToNotation(m.to);
+  if (m.captures.length > 0) {
+    return `${prefix}: ${from}x${to} (${m.captures.length} cap)`;
+  }
+  return `${prefix}: ${from}-${to}`;
+}
+
+// ============================================================
 // AI
 // ============================================================
 function evaluateBoard(b: Cell[][], color: PieceColor): number {
@@ -306,14 +359,6 @@ let animating = false;
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
-}
-
-function easeOutBounce(t: number): number {
-  const n1 = 7.5625, d1 = 2.75;
-  if (t < 1/d1) return n1*t*t;
-  else if (t < 2/d1) return n1*(t-=1.5/d1)*t+0.75;
-  else if (t < 2.5/d1) return n1*(t-=2.25/d1)*t+0.9375;
-  else return n1*(t-=2.625/d1)*t+0.984375;
 }
 
 function animatePieceMove(fromR: number, fromC: number, toR: number, toC: number, onComplete?: () => void) {
@@ -398,7 +443,6 @@ function updateAnimations(dt: number) {
       const t = easeInOutCubic(a.progress);
       const x = a.fromX + (a.toX - a.fromX) * t;
       const z = a.fromZ + (a.toZ - a.fromZ) * t;
-      // Arc motion - piece lifts in the middle of the move
       const arcH = 0.06 * Math.sin(a.progress * Math.PI);
       const y = a.toY + arcH;
       a.mesh.position.set(x, y, z);
@@ -420,7 +464,7 @@ function updateAnimations(dt: number) {
       p.mesh.position.x += p.vx * dt;
       p.mesh.position.y += p.vy * dt;
       p.mesh.position.z += p.vz * dt;
-      p.vy -= 2.0 * dt; // gravity
+      p.vy -= 2.0 * dt;
       const alpha = p.life / p.maxLife;
       (p.mesh.material as MeshBasicMaterial).opacity = alpha;
       const scale = 0.5 + alpha * 0.5;
@@ -479,9 +523,23 @@ interface MoveRecord {
 let moveHistory: MoveRecord[] = [];
 let undoAvailable = false;
 
+// Move log for display
+interface MoveLogEntry { notation: string; who: PieceColor; }
+let moveLog: MoveLogEntry[] = [];
+let totalMoveCount = 0;
+
 // Hover state
 let hoveredCell: Pos|null = null;
 let hoverMesh: Mesh|null = null;
+
+// Last move highlight
+let lastMoveFrom: Pos|null = null;
+let lastMoveTo: Pos|null = null;
+let lastMoveHighlights: Mesh[] = [];
+
+// Turn transition flash
+let turnFlashTimer = 0;
+const TURN_FLASH_DUR = 0.4;
 
 // 3D objects
 let boardGroup: Group;
@@ -490,6 +548,7 @@ let crownMeshes: (Mesh|null)[][] = [];
 let highlightMeshes: Mesh[] = [];
 let selectedHighlight: Mesh|null = null;
 let boardEdgeMeshes: Mesh[] = [];
+let coordLabels: Mesh[] = [];
 
 // ============================================================
 // PANEL MANAGER
@@ -542,9 +601,8 @@ class Panels {
     this.oc('pause','btn-undo',()=>{
       if (undoAvailable && moveHistory.length >= 2) {
         sfxUndo();
-        // Undo AI move + player move (2 moves back)
-        moveHistory.pop(); // remove AI move
-        const prev = moveHistory.pop()!; // remove player move
+        moveHistory.pop();
+        const prev = moveHistory.pop()!;
         board = prev.board;
         turn = 'red';
         playerCaptures = prev.playerCaptures;
@@ -553,9 +611,12 @@ class Panels {
         piecesLost = prev.piecesLost;
         allMoves = getAllMoves(board, 'red');
         selected = null; validMoves = [];
-        syncBoardVisuals(); clearHighlights();
+        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
+        // Remove last 2 log entries (player + AI)
+        if (moveLog.length >= 2) { moveLog.splice(moveLog.length-2, 2); totalMoveCount = Math.max(0, totalMoveCount-2); }
         undoAvailable = moveHistory.length >= 2;
         screen = 'playing'; this.vis();
+        this.updHistory();
         this.showToast('Move undone');
       }
     });
@@ -568,7 +629,10 @@ class Panels {
 
   wireSettings() {
     this.oc('settings','btn-sfx',()=>{ sfxClick(); save.sfxOn=!save.sfxOn; writeSave(save); this.updSett(); });
-    this.oc('settings','btn-music',()=>{ sfxClick(); save.musicOn=!save.musicOn; writeSave(save); this.updSett(); });
+    this.oc('settings','btn-music',()=>{
+      sfxClick(); save.musicOn=!save.musicOn; writeSave(save); this.updSett();
+      setDroneLevel(save.musicOn ? 0.04 : 0);
+    });
     this.oc('settings','btn-theme-prev',()=>{ sfxClick(); save.selectedTheme=(save.selectedTheme-1+THEMES.length)%THEMES.length; writeSave(save); this.updSett(); });
     this.oc('settings','btn-theme-next',()=>{ sfxClick(); save.selectedTheme=(save.selectedTheme+1)%THEMES.length; writeSave(save); this.updSett(); });
     this.oc('settings','btn-reset',()=>{ sfxClick(); save=defaultSave(); writeSave(save); this.updSett(); });
@@ -579,6 +643,7 @@ class Panels {
   wireAch() { this.oc('achvlist','btn-back',()=>{ sfxClick(); screen='title'; this.vis(); }); }
   wireStats() { this.oc('stats','btn-back',()=>{ sfxClick(); screen='title'; this.vis(); }); }
   wireLB() { this.oc('leaderboard','btn-back',()=>{ sfxClick(); screen='title'; this.vis(); }); }
+  wireHistory() { /* history panel is display-only */ }
 
   wireSkins() {
     for (let i=0;i<SKINS.length;i++) this.oc('skins',`btn-skin-${i}`,()=>{
@@ -587,9 +652,7 @@ class Panels {
     this.oc('skins','btn-back',()=>{ sfxClick(); screen='title'; this.vis(); });
   }
 
-  wireCountdown() {
-    // countdown panel is display-only
-  }
+  wireCountdown() { /* countdown panel is display-only */ }
 
   updHUD() {
     const elapsed=screen==='playing'?(Date.now()-gameStartTime)/1000:gameDuration;
@@ -602,6 +665,7 @@ class Panels {
     this.st('hud','ai-count',`AI: ${countPieces(board,'black')}`);
     this.st('hud','diff-display',diffs[difficulty]);
     this.st('hud','mode-display',mode.toUpperCase());
+    this.st('hud','move-num',`Move ${totalMoveCount}`);
     if (mode==='timed'||mode==='blitz') {
       const tm=Math.floor(timerSec/60), ts=Math.floor(timerSec%60);
       this.st('hud','timer-display',`${tm}:${ts<10?'0':''}${ts}`);
@@ -650,10 +714,31 @@ class Panels {
     }
   }
 
+  updHistory() {
+    const recent = moveLog.slice(-8);
+    for (let i = 0; i < 8; i++) {
+      if (i < recent.length) {
+        const entry = recent[i];
+        this.st('history', `move-${i}`, entry.notation);
+      } else {
+        this.st('history', `move-${i}`, '---');
+      }
+    }
+    this.st('history', 'move-count', `Moves: ${totalMoveCount}`);
+  }
+
   updGameover(winner: PieceColor|'draw') {
-    if (winner==='draw') { this.st('gameover','result-text','DRAW'); this.st('gameover','result-detail','Neither side could win'); }
-    else if (winner==='red') { this.st('gameover','result-text','YOU WIN!'); this.st('gameover','result-detail',`Captured ${playerCaptures} pieces in ${Math.floor(gameDuration)}s`); }
-    else { this.st('gameover','result-text','AI WINS'); this.st('gameover','result-detail',`AI captured ${aiCaptures} of your pieces`); }
+    if (winner==='draw') {
+      this.st('gameover','result-text','DRAW');
+      this.st('gameover','result-detail','Neither side could win');
+    } else if (winner==='red') {
+      this.st('gameover','result-text','YOU WIN!');
+      const mm = Math.floor(gameDuration/60), ss = Math.floor(gameDuration%60);
+      this.st('gameover','result-detail',`${playerCaptures} captures | ${playerKingsThisGame} kings | ${mm}:${ss<10?'0':''}${ss} | ${totalMoveCount} moves`);
+    } else {
+      this.st('gameover','result-text','AI WINS');
+      this.st('gameover','result-detail',`AI captured ${aiCaptures} pieces in ${totalMoveCount} moves`);
+    }
   }
 
   showToast(msg: string) { toastTimer=3; this.st('toast','toast-text',msg);
@@ -665,10 +750,10 @@ const panels = new Panels();
 // COUNTDOWN
 // ============================================================
 function beginCountdown() {
-  // Set up the board first so it's visible during countdown
   board = initBoard();
   syncBoardVisuals();
   clearHighlights();
+  clearLastMoveHighlights();
 
   countdownValue = 3;
   countdownTimer = 0;
@@ -687,7 +772,6 @@ function updateCountdown(dt: number) {
     if (countdownValue <= 0) {
       sfxCountdownGo();
       panels.st('countdown', 'countdown-text', 'GO!');
-      // Short delay then start
       setTimeout(() => { startGame(); panels.vis(); }, 300);
     } else {
       sfxCountdown();
@@ -709,9 +793,16 @@ function startGame() {
   playerKingsThisGame=0; piecesLost=0; worstDeficit=0; aiThinking=false;
   gameStartTime=Date.now(); gameDuration=0; timerAcc=0;
   moveHistory=[]; undoAvailable=false;
+  moveLog=[]; totalMoveCount=0;
+  lastMoveFrom=null; lastMoveTo=null;
   if (mode==='timed') timerSec=300; else if (mode==='blitz') timerSec=120; else timerSec=0;
   allMoves=getAllMoves(board,'red');
-  syncBoardVisuals(); clearHighlights(); screen='playing'; panels.vis();
+  syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
+  screen='playing'; panels.vis();
+  panels.updHistory();
+  // Start ambient drone
+  startDrone();
+  if (save.musicOn) setDroneLevel(0.04);
 }
 
 function endGame(winner: PieceColor|'draw') {
@@ -733,6 +824,8 @@ function endGame(winner: PieceColor|'draw') {
     save.highScores=save.highScores.slice(0,20);
   } else { save.currentStreak=0; if (winner!=='draw') sfxLose(); }
   writeSave(save); checkAchievements(); panels.updGameover(winner); screen='gameover'; panels.vis();
+  // Fade drone down
+  setDroneLevel(0.01);
 }
 
 function handleCellClick(r: number, c: number) {
@@ -749,21 +842,21 @@ function handleCellClick(r: number, c: number) {
   }
 }
 
+function logMove(move: Move, who: PieceColor) {
+  const notation = moveToNotation(move, who);
+  moveLog.push({ notation, who });
+  totalMoveCount++;
+  panels.updHistory();
+}
+
 function applyPlayerMove(move: Move) {
-  // Save state for undo before applying
   moveHistory.push({
-    board: cloneBoard(board),
-    move,
-    turn: 'red',
-    playerCaptures,
-    aiCaptures,
-    playerKings: playerKingsThisGame,
-    piecesLost,
+    board: cloneBoard(board), move, turn: 'red',
+    playerCaptures, aiCaptures, playerKings: playerKingsThisGame, piecesLost,
   });
 
   const wasKing=board[move.from.r][move.from.c].king;
 
-  // Spawn capture particles BEFORE removing pieces
   for (const cap of move.captures) {
     const capturedColor = board[cap.r][cap.c].piece;
     if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
@@ -779,16 +872,20 @@ function applyPlayerMove(move: Move) {
   if (!wasKing&&board[move.to.r][move.to.c].king) { playerKingsThisGame++; sfxKing(); }
   selected=null; validMoves=[]; clearHighlights();
 
-  // Animate the piece movement
+  // Log and show last move
+  logMove(move, 'red');
+  showLastMove(move.from, move.to);
+
   animatePieceMove(move.from.r, move.from.c, move.to.r, move.to.c, () => {
     syncBoardVisuals();
     const w=checkWinnerStatic(board);
     if (w) { endGame(w); return; }
     if (getAllMoves(board,'black').length===0) { endGame('red'); return; }
-    turn='black'; allMoves=getAllMoves(board,'black'); doAiTurn();
+    turn='black'; allMoves=getAllMoves(board,'black');
+    triggerTurnFlash();
+    doAiTurn();
   });
 
-  // Immediately update visuals for captured pieces
   for (const cap of move.captures) {
     if (pieceMeshes[cap.r][cap.c]) { boardGroup.remove(pieceMeshes[cap.r][cap.c]!); pieceMeshes[cap.r][cap.c]=null; }
     if (crownMeshes[cap.r][cap.c]) { boardGroup.remove(crownMeshes[cap.r][cap.c]!); crownMeshes[cap.r][cap.c]=null; }
@@ -801,21 +898,14 @@ function doAiTurn() {
     const move=aiMove(board,difficulty);
     if (!move) { endGame('red'); aiThinking=false; return; }
 
-    // Save AI state for undo
     moveHistory.push({
-      board: cloneBoard(board),
-      move,
-      turn: 'black',
-      playerCaptures,
-      aiCaptures,
-      playerKings: playerKingsThisGame,
-      piecesLost,
+      board: cloneBoard(board), move, turn: 'black',
+      playerCaptures, aiCaptures, playerKings: playerKingsThisGame, piecesLost,
     });
     undoAvailable = true;
 
     const wasKing=board[move.from.r][move.from.c].king;
 
-    // Spawn capture particles
     for (const cap of move.captures) {
       const capturedColor = board[cap.r][cap.c].piece;
       if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
@@ -828,21 +918,67 @@ function doAiTurn() {
     const deficit=countPieces(board,'black')-countPieces(board,'red');
     if (deficit>worstDeficit) worstDeficit=deficit;
 
-    // Remove captured piece visuals immediately
+    // Log and show last move
+    logMove(move, 'black');
+    showLastMove(move.from, move.to);
+
     for (const cap of move.captures) {
       if (pieceMeshes[cap.r][cap.c]) { boardGroup.remove(pieceMeshes[cap.r][cap.c]!); pieceMeshes[cap.r][cap.c]=null; }
       if (crownMeshes[cap.r][cap.c]) { boardGroup.remove(crownMeshes[cap.r][cap.c]!); crownMeshes[cap.r][cap.c]=null; }
     }
 
-    // Animate AI piece movement
     animatePieceMove(move.from.r, move.from.c, move.to.r, move.to.c, () => {
       syncBoardVisuals();
       const w=checkWinnerStatic(board);
       if (w) { endGame(w); aiThinking=false; return; }
       if (getAllMoves(board,'red').length===0) { endGame('black'); aiThinking=false; return; }
       turn='red'; allMoves=getAllMoves(board,'red'); aiThinking=false;
+      triggerTurnFlash();
     });
   }, 300+Math.random()*400);
+}
+
+// ============================================================
+// TURN FLASH
+// ============================================================
+function triggerTurnFlash() {
+  turnFlashTimer = TURN_FLASH_DUR;
+  sfxTurnChange();
+}
+
+// ============================================================
+// LAST MOVE HIGHLIGHT
+// ============================================================
+function clearLastMoveHighlights() {
+  for (const h of lastMoveHighlights) boardGroup.remove(h);
+  lastMoveHighlights = [];
+  lastMoveFrom = null;
+  lastMoveTo = null;
+}
+
+function showLastMove(from: Pos, to: Pos) {
+  clearLastMoveHighlights();
+  lastMoveFrom = from;
+  lastMoveTo = to;
+  const th = THEMES[save.selectedTheme];
+
+  // "From" cell — dimmer indicator
+  const fromPos = cellToWorld(from.r, from.c);
+  const fromGeo = new BoxGeometry(CELL_SIZE-0.008, 0.002, CELL_SIZE-0.008);
+  const fromMat = new MeshBasicMaterial({ color: new Color('#ffaa00'), transparent: true, opacity: 0.2 });
+  const fromMesh = new Mesh(fromGeo, fromMat);
+  fromMesh.position.set(fromPos.x, 0.008, fromPos.z);
+  boardGroup.add(fromMesh);
+  lastMoveHighlights.push(fromMesh);
+
+  // "To" cell — brighter indicator
+  const toPos = cellToWorld(to.r, to.c);
+  const toGeo = new BoxGeometry(CELL_SIZE-0.008, 0.002, CELL_SIZE-0.008);
+  const toMat = new MeshBasicMaterial({ color: new Color('#ffaa00'), transparent: true, opacity: 0.35 });
+  const toMesh = new Mesh(toGeo, toMat);
+  toMesh.position.set(toPos.x, 0.008, toPos.z);
+  boardGroup.add(toMesh);
+  lastMoveHighlights.push(toMesh);
 }
 
 // ============================================================
@@ -860,9 +996,13 @@ function getSkinColors(color: PieceColor) {
 function createBoardVisuals(scene: Object3D) {
   boardGroup=new Group(); boardGroup.position.set(0,BOARD_Y,-0.5); scene.add(boardGroup);
   const th=THEMES[save.selectedTheme];
+
+  // Board base
   const baseGeo=new BoxGeometry(8*CELL_SIZE+0.04,0.02,8*CELL_SIZE+0.04);
   const baseMesh=new Mesh(baseGeo,new MeshStandardMaterial({color:new Color(th.table),metalness:0.5,roughness:0.3}));
   baseMesh.position.y=-0.01; boardGroup.add(baseMesh);
+
+  // Cells
   for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
     const dk=(r+c)%2===1;
     const geo=new BoxGeometry(CELL_SIZE-0.002,0.005,CELL_SIZE-0.002);
@@ -873,7 +1013,7 @@ function createBoardVisuals(scene: Object3D) {
     mesh.userData={boardCell:true,row:r,col:c}; boardGroup.add(mesh);
   }
 
-  // Board edge accents with pulsing capability
+  // Board edge accents
   boardEdgeMeshes = [];
   const eMat=new MeshStandardMaterial({color:new Color(th.accent),emissive:new Color(th.accent),emissiveIntensity:0.5,metalness:0.8,roughness:0.2});
   const eg1=new BoxGeometry(CELL_SIZE*8+0.01,0.003,0.005);
@@ -890,6 +1030,28 @@ function createBoardVisuals(scene: Object3D) {
     dot.position.set(x, 0.012, z);
     boardGroup.add(dot);
     boardEdgeMeshes.push(dot);
+  }
+
+  // Board coordinates — column labels (A-H) along the bottom edge
+  coordLabels = [];
+  const coordGeo = new SphereGeometry(0.004, 6, 6);
+  for (let c = 0; c < 8; c++) {
+    const pos = cellToWorld(7, c); // bottom row
+    // Place a small dot marker below the board edge for each column
+    const mat = new MeshBasicMaterial({ color: new Color(th.accent), transparent: true, opacity: 0.5 });
+    const marker = new Mesh(coordGeo, mat);
+    marker.position.set(pos.x, 0.006, bSize + 0.02);
+    boardGroup.add(marker);
+    coordLabels.push(marker);
+  }
+  // Row markers along the left edge
+  for (let r = 0; r < 8; r++) {
+    const pos = cellToWorld(r, 0);
+    const mat = new MeshBasicMaterial({ color: new Color(th.accent), transparent: true, opacity: 0.5 });
+    const marker = new Mesh(coordGeo, mat);
+    marker.position.set(-bSize - 0.02, 0.006, pos.z);
+    boardGroup.add(marker);
+    coordLabels.push(marker);
   }
 
   // Hover indicator mesh
@@ -966,7 +1128,6 @@ function updateHoverEffect(r: number, c: number) {
     hoveredCell = null;
     return;
   }
-  // Only show hover on cells the player can interact with
   const cell = board[r][c];
   const isOwnPiece = cell.piece === 'red';
   const isValidTarget = selected ? validMoves.some(m => m.to.r === r && m.to.c === c) : false;
@@ -989,8 +1150,6 @@ function createEnvironment(scene: Object3D) {
   const dir=new DirectionalLight(new Color('#ffffff'),0.6); dir.position.set(2,4,2); scene.add(dir);
   const a1=new PointLight(new Color(th.accent),1,5); a1.position.set(-1,2,-1); scene.add(a1);
   const a2=new PointLight(new Color(th.accent),0.5,5); a2.position.set(1,2,1); scene.add(a2);
-
-  // Additional accent lights for atmosphere
   const a3=new PointLight(new Color(th.accent),0.3,3); a3.position.set(0,1.5,-0.5); scene.add(a3);
 
   const gMat=new LineBasicMaterial({color:new Color(th.gridC),transparent:true,opacity:0.3});
@@ -1005,7 +1164,6 @@ function createEnvironment(scene: Object3D) {
     const p=new Mesh(pGeo,pMat); p.position.set(x,BOARD_Y+0.5,z-0.5); scene.add(p);
   }
 
-  // Ambient floating particles
   createAmbientParticles(scene);
 }
 
@@ -1038,6 +1196,7 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
         case 'leaderboard': panels.wireLB(); break;
         case 'help': panels.wireHelp(); break;
         case 'countdown': panels.wireCountdown(); break;
+        case 'history': panels.wireHistory(); break;
       }
       panels.vis();
     });
@@ -1048,7 +1207,6 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
   }
 
   update(dt: number) {
-    // Countdown
     updateCountdown(dt);
 
     // Timer
@@ -1076,13 +1234,22 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
       (edge.material as MeshStandardMaterial).emissiveIntensity = edgePulse;
     }
 
+    // Turn flash effect — brief bright flash on board edges
+    if (turnFlashTimer > 0) {
+      turnFlashTimer -= dt;
+      const flashIntensity = (turnFlashTimer / TURN_FLASH_DUR) * 2.0;
+      for (const edge of boardEdgeMeshes) {
+        (edge.material as MeshStandardMaterial).emissiveIntensity = edgePulse + flashIntensity;
+      }
+    }
+
     // Hover glow pulse
     if (hoverMesh && hoverMesh.visible) {
       const hoverPulse = 0.15 + Math.sin(Date.now()*0.006)*0.1;
       (hoverMesh.material as MeshBasicMaterial).opacity = hoverPulse;
     }
 
-    // Movable piece subtle glow (pulse pieces that can move)
+    // Movable piece subtle glow
     if (screen === 'playing' && turn === 'red' && !aiThinking && !animating && !selected) {
       const movablePulse = 0.25 + Math.sin(Date.now()*0.004)*0.1;
       for (const m of allMoves) {
@@ -1090,6 +1257,14 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
         if (pm) {
           (pm.material as MeshStandardMaterial).emissiveIntensity = movablePulse;
         }
+      }
+    }
+
+    // Last move highlight pulse (subtle amber)
+    if (lastMoveHighlights.length > 0 && screen === 'playing') {
+      const lmPulse = 0.15 + Math.sin(Date.now()*0.003)*0.1;
+      for (const h of lastMoveHighlights) {
+        (h.material as MeshBasicMaterial).opacity = lmPulse;
       }
     }
 
@@ -1102,10 +1277,9 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
       }
       if (inp.keyboard.getKeyDown('KeyR')&&screen==='gameover') { beginCountdown(); panels.vis(); }
       if (inp.keyboard.getKeyDown('KeyM')&&screen==='gameover') { screen='title'; panels.vis(); }
-      // Undo with U key or Ctrl+Z
       if (inp.keyboard.getKeyDown('KeyU')&&screen==='playing'&&undoAvailable&&moveHistory.length>=2&&!animating&&!aiThinking) {
         sfxUndo();
-        moveHistory.pop(); // AI move
+        moveHistory.pop();
         const prev = moveHistory.pop()!;
         board = prev.board;
         turn = 'red';
@@ -1115,8 +1289,10 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
         piecesLost = prev.piecesLost;
         allMoves = getAllMoves(board, 'red');
         selected = null; validMoves = [];
-        syncBoardVisuals(); clearHighlights();
+        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
+        if (moveLog.length >= 2) { moveLog.splice(moveLog.length-2, 2); totalMoveCount = Math.max(0, totalMoveCount-2); }
         undoAvailable = moveHistory.length >= 2;
+        panels.updHistory();
         panels.showToast('Move undone');
       }
     }
@@ -1142,7 +1318,6 @@ async function main() {
   container.addEventListener('pointermove', (e: PointerEvent) => {
     lastMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     lastMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    // Hover detection
     raycaster.setFromCamera(lastMouse, world.camera);
     if (boardGroup) {
       const cells = boardGroup.children.filter((c: any) => c.userData?.boardCell || c.userData?.isPiece);
@@ -1194,6 +1369,8 @@ async function main() {
     { config:'./ui/leaderboard.json', pos:[0,1.6,-2.5], scale:2.0, fol:false, scr:['leaderboard'] },
     { config:'./ui/help.json', pos:[0,1.6,-2.5], scale:2.0, fol:false, scr:['help'] },
     { config:'./ui/toast.json', pos:[0,2.3,-2.0], scale:1.5, fol:true, scr:['playing','gameover','title'] },
+    // Move history panel — positioned to the right of the board
+    { config:'./ui/history.json', pos:[0.8,1.3,-0.8], scale:1.2, fol:false, scr:['playing'] },
   ];
 
   for (const c of cfgs) {

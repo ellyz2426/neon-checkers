@@ -1,4 +1,4 @@
-<container flexDirection="row" justifyContent="space-between" alignItems="center" gap="8" padding="4" paddingLeft="10" paddingRight="10">
+<container flexDirection="row" justifyContent="space-between" alignItems="center" gap="6" padding="4" paddingLeft="8" paddingRight="8">
   <text name="turn-display" fontSize="10" fontWeight="bold" color="#00ffff">YOUR TURN</text>
   <text name="mode-display" fontSize="8" color="#888888">SOLO</text>
   <text name="diff-display" fontSize="8" color="#ffaa00">Medium</text>
@@ -6,4 +6,5 @@
   <text name="ai-count" fontSize="9" color="#00ffff">AI: 12</text>
   <text name="time-display" fontSize="9" color="#ffffff">0:00</text>
   <text name="timer-display" fontSize="9" color="#ffcc00"></text>
+  <text name="move-num" fontSize="8" color="#666666">Move 0</text>
 </container>
