@@ -111,11 +111,22 @@
         "type": "custom",
         "children": [],
         "properties": {
+          "name": "streak-display",
+          "fontsize": "8",
+          "color": "#ffcc00"
+        },
+        "dataUid": "uid-10"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [],
+        "properties": {
           "name": "draw-warn",
           "fontsize": "8",
           "color": "#ff4444"
         },
-        "dataUid": "uid-10"
+        "dataUid": "uid-11"
       }
     ],
     "properties": {
@@ -137,7 +148,7 @@
         "column": 0
       },
       "end": {
-        "line": 10,
+        "line": 11,
         "column": 12
       }
     },
@@ -228,6 +239,16 @@
       },
       "end": {
         "line": 9,
+        "column": 66
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 10,
+        "column": 2
+      },
+      "end": {
+        "line": 10,
         "column": 61
       }
     }

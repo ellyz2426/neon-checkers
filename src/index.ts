@@ -1,9 +1,9 @@
 // ============================================================
 // NEON CHECKERS VR - Holographic Draughts Game
 // Built with IWSDK 0.4.x - playable in VR and browser
-// Round 3: board coords, move history, last-move highlight,
-//   turn transition flash, enhanced gameover, ambient hum,
-//   move counter, improved visuals
+// Round 5: captured pieces tray, board reflection, pitch
+//   variation audio, auto-select, AI delay tuning, piece
+//   lift on select, arrow key move cycling, streak in HUD
 // ============================================================
 
 import {
@@ -147,7 +147,9 @@ let audioCtx: AudioContext|null = null;
 function ensureAudio() { if (!audioCtx) audioCtx = new AudioContext(); return audioCtx; }
 function playTone(freq: number, dur: number, vol=0.15, type: OscillatorType='sine') {
   try { const ctx=ensureAudio(), o=ctx.createOscillator(), g=ctx.createGain();
-    o.type=type; o.frequency.value=freq;
+    // Pitch variation ±8% for natural feel
+    const pitchVar = 1 + (Math.random() - 0.5) * 0.16;
+    o.type=type; o.frequency.value=freq * pitchVar;
     g.gain.setValueAtTime(vol, ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
     o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
@@ -680,6 +682,15 @@ let chainPathMeshes: Mesh[] = [];
 // Board turn color — edges glow differently per turn
 let boardTurnColor: PieceColor = 'red';
 
+// Arrow key move target cycling
+let arrowMoveIndex = -1;
+
+// Selected piece lift effect
+let selectedLiftTarget: Pos|null = null;
+
+// Auto-select tracking
+let lastAutoSelectCount = -1;
+
 // 3D objects
 let boardGroup: Group;
 let pieceMeshes: (Mesh|null)[][] = [];
@@ -688,6 +699,13 @@ let highlightMeshes: Mesh[] = [];
 let selectedHighlight: Mesh|null = null;
 let boardEdgeMeshes: Mesh[] = [];
 let coordLabels: Mesh[] = [];
+
+// Captured pieces tray
+let capturedTrayRed: Mesh[] = []; // AI pieces captured by player (left side)
+let capturedTrayBlack: Mesh[] = []; // Player pieces captured by AI (right side)
+
+// Board reflection meshes
+let reflectionMeshes: Mesh[] = [];
 
 // ============================================================
 // PANEL MANAGER
@@ -811,6 +829,12 @@ class Panels {
       this.st('hud','draw-warn',`Draw in ${DRAW_THRESHOLD - nonCaptureMoveCount}`);
     } else {
       this.st('hud','draw-warn','');
+    }
+    // Win streak display
+    if (save.currentStreak > 0) {
+      this.st('hud','streak-display',`${save.currentStreak} streak`);
+    } else {
+      this.st('hud','streak-display','');
     }
     if (mode==='timed'||mode==='blitz') {
       const tm=Math.floor(timerSec/60), ts=Math.floor(timerSec%60);
@@ -951,7 +975,9 @@ function startGame() {
   for (const cp of celebrationParticles) { boardGroup.remove(cp.mesh); cp.mesh.geometry.dispose(); (cp.mesh.material as MeshBasicMaterial).dispose(); }
   celebrationParticles=[];
   clearChainPath();
+  clearTrays();
   boardTurnColor='red';
+  arrowMoveIndex=-1; selectedLiftTarget=null; lastAutoSelectCount=-1;
   if (mode==='timed') timerSec=300; else if (mode==='blitz') timerSec=120; else timerSec=0;
   allMoves=getAllMoves(board,'red');
   syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
@@ -1019,7 +1045,10 @@ function applyPlayerMove(move: Move) {
 
   for (const cap of move.captures) {
     const capturedColor = board[cap.r][cap.c].piece;
-    if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
+    if (capturedColor) {
+      spawnCaptureParticles(cap.r, cap.c, capturedColor);
+      addToTray('left', capturedColor); // Player captured an AI piece
+    }
   }
 
   board=executeMove(board,move);
@@ -1032,6 +1061,7 @@ function applyPlayerMove(move: Move) {
   } else { sfxMove(); nonCaptureMoveCount++; }
   if (!wasKing&&board[move.to.r][move.to.c].king) { playerKingsThisGame++; sfxKing(); }
   selected=null; validMoves=[]; clearHighlights();
+  selectedLiftTarget=null; arrowMoveIndex=-1;
 
   // Log and show last move
   logMove(move, 'red');
@@ -1057,6 +1087,9 @@ function applyPlayerMove(move: Move) {
 
 function doAiTurn() {
   aiThinking=true;
+  // AI delay tuned by difficulty — harder AI "thinks" longer
+  const aiDelay = difficulty === 0 ? 200 : difficulty === 1 ? 450 : 700;
+  const delayJitter = Math.random() * 300;
   setTimeout(()=>{
     const move=aiMove(board,difficulty);
     if (!move) { endGame('red'); aiThinking=false; return; }
@@ -1071,7 +1104,10 @@ function doAiTurn() {
 
     for (const cap of move.captures) {
       const capturedColor = board[cap.r][cap.c].piece;
-      if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
+      if (capturedColor) {
+        spawnCaptureParticles(cap.r, cap.c, capturedColor);
+        addToTray('right', capturedColor); // AI captured a player piece
+      }
     }
 
     board=executeMove(board,move);
@@ -1101,7 +1137,7 @@ function doAiTurn() {
       boardTurnColor='red';
       triggerTurnFlash();
     });
-  }, 300+Math.random()*400);
+  }, aiDelay + delayJitter);
 }
 
 // ============================================================
@@ -1228,8 +1264,52 @@ function createBoardVisuals(scene: Object3D) {
   hoverMesh.visible = false;
   boardGroup.add(hoverMesh);
 
+  // Board reflection — mirrored translucent cells beneath
+  reflectionMeshes = [];
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+    const dk=(r+c)%2===1;
+    const rGeo=new BoxGeometry(CELL_SIZE-0.002,0.003,CELL_SIZE-0.002);
+    const rMat=new MeshBasicMaterial({color:new Color(dk?th.dark:th.light),transparent:true,opacity:0.08});
+    const rMesh=new Mesh(rGeo,rMat); const pos_=cellToWorld(r,c);
+    rMesh.position.set(pos_.x,-0.025,pos_.z);
+    boardGroup.add(rMesh); reflectionMeshes.push(rMesh);
+  }
+
+  // Captured pieces trays — initialize empty
+  capturedTrayRed = [];
+  capturedTrayBlack = [];
+
   pieceMeshes=[]; crownMeshes=[];
   for (let r=0;r<8;r++) { pieceMeshes[r]=[]; crownMeshes[r]=[]; for (let c=0;c<8;c++) { pieceMeshes[r][c]=null; crownMeshes[r][c]=null; } }
+}
+
+// Add a captured piece to the tray (visual only)
+function addToTray(side: 'left'|'right', color: PieceColor) {
+  const tray = side === 'left' ? capturedTrayRed : capturedTrayBlack;
+  const idx = tray.length;
+  const row = Math.floor(idx / 4);
+  const col = idx % 4;
+  const sc = getSkinColors(color);
+  const geo = new CylinderGeometry(PIECE_RADIUS*0.6, PIECE_RADIUS*0.6, PIECE_HEIGHT*0.8, 16);
+  const mat = new MeshStandardMaterial({
+    color: new Color(sc.body), metalness: 0.6, roughness: 0.2,
+    emissive: new Color(sc.edge), emissiveIntensity: 0.2, transparent: true, opacity: 0.7,
+  });
+  const mesh = new Mesh(geo, mat);
+  const bSize = CELL_SIZE*4 + 0.06;
+  const xBase = side === 'left' ? -bSize - 0.06 : bSize + 0.06;
+  const xOff = col * 0.03 * (side === 'left' ? -1 : 1);
+  const zOff = row * 0.03 - 0.15;
+  mesh.position.set(xBase + xOff, PIECE_HEIGHT*0.4 + 0.008, zOff);
+  boardGroup.add(mesh);
+  tray.push(mesh);
+}
+
+function clearTrays() {
+  for (const m of capturedTrayRed) { boardGroup.remove(m); m.geometry.dispose(); (m.material as MeshStandardMaterial).dispose(); }
+  for (const m of capturedTrayBlack) { boardGroup.remove(m); m.geometry.dispose(); (m.material as MeshStandardMaterial).dispose(); }
+  capturedTrayRed = [];
+  capturedTrayBlack = [];
 }
 
 function syncBoardVisuals() {
@@ -1269,7 +1349,7 @@ function clearHighlights() {
 }
 
 function showHighlights() {
-  clearHighlights(); clearChainPath(); const th=THEMES[save.selectedTheme];
+  clearHighlights(); clearChainPath(); arrowMoveIndex=-1; const th=THEMES[save.selectedTheme];
   if (selected) {
     const p=cellToWorld(selected.r,selected.c);
     const rg=new RingGeometry(PIECE_RADIUS-0.005,PIECE_RADIUS+0.005,24);
@@ -1284,6 +1364,21 @@ function showHighlights() {
     const hm=new MeshBasicMaterial({color:new Color(isCap?'#ff4444':th.accent),transparent:true,opacity:0.5});
     const mesh=new Mesh(hg,hm); mesh.position.set(p.x,0.01,p.z);
     mesh.userData={isHighlight:true,moveIdx:i}; boardGroup.add(mesh); highlightMeshes.push(mesh);
+  }
+}
+
+function updateArrowHighlight() {
+  // Brighten the arrow-selected target, dim others
+  for (let i=0; i<highlightMeshes.length; i++) {
+    const mat = highlightMeshes[i].material as MeshBasicMaterial;
+    if (i === arrowMoveIndex) {
+      mat.opacity = 0.9;
+      // Slightly raise the highlighted cell
+      highlightMeshes[i].position.y = 0.013;
+    } else {
+      mat.opacity = 0.3;
+      highlightMeshes[i].position.y = 0.01;
+    }
   }
 }
 
@@ -1454,6 +1549,37 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
       }
     }
 
+    // Selected piece lift effect — raise selected piece slightly
+    if (selected && screen === 'playing' && !animating) {
+      const pm = pieceMeshes[selected.r]?.[selected.c];
+      if (pm) {
+        const liftY = PIECE_HEIGHT/2 + 0.008 + 0.015 + Math.sin(Date.now()*0.006)*0.003;
+        pm.position.y = liftY;
+        const cm = crownMeshes[selected.r]?.[selected.c];
+        if (cm) cm.position.y = liftY + PIECE_HEIGHT*0.5 + 0.004;
+      }
+    }
+
+    // Auto-select when only one piece can move
+    if (screen === 'playing' && turn === 'red' && !aiThinking && !animating && !selected) {
+      const movablePieces = new Set<string>();
+      for (const m of allMoves) movablePieces.add(`${m.from.r},${m.from.c}`);
+      if (movablePieces.size === 1 && movablePieces.size !== lastAutoSelectCount) {
+        const firstMove = allMoves[0];
+        selected = firstMove.from;
+        validMoves = allMoves.filter(m => m.from.r === firstMove.from.r && m.from.c === firstMove.from.c);
+        sfxSelect();
+        showHighlights();
+      }
+      lastAutoSelectCount = movablePieces.size;
+    }
+
+    // Board reflection subtle pulse
+    const refPulse = 0.06 + Math.sin(Date.now()*0.001)*0.02;
+    for (const rm of reflectionMeshes) {
+      (rm.material as MeshBasicMaterial).opacity = refPulse;
+    }
+
     // Keyboard input
     const inp=(this.world as any).input as RuntimeInput|undefined;
     if (inp?.keyboard) {
@@ -1500,7 +1626,22 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
       }
       // Enter/Space to confirm first valid move for selected piece
       if ((inp.keyboard.getKeyDown('Enter')||inp.keyboard.getKeyDown('Space'))&&screen==='playing'&&selected&&validMoves.length>0&&!animating&&!aiThinking) {
-        applyPlayerMove(validMoves[0]);
+        const moveIdx = arrowMoveIndex >= 0 && arrowMoveIndex < validMoves.length ? arrowMoveIndex : 0;
+        applyPlayerMove(validMoves[moveIdx]);
+      }
+      // Arrow keys to cycle through valid move targets
+      if (selected && validMoves.length > 1 && screen === 'playing' && !animating && !aiThinking) {
+        if (inp.keyboard.getKeyDown('ArrowRight') || inp.keyboard.getKeyDown('ArrowDown')) {
+          arrowMoveIndex = ((arrowMoveIndex < 0 ? 0 : arrowMoveIndex) + 1) % validMoves.length;
+          sfxClick();
+          // Highlight the targeted move's cell more brightly
+          updateArrowHighlight();
+        }
+        if (inp.keyboard.getKeyDown('ArrowLeft') || inp.keyboard.getKeyDown('ArrowUp')) {
+          arrowMoveIndex = arrowMoveIndex <= 0 ? validMoves.length - 1 : arrowMoveIndex - 1;
+          sfxClick();
+          updateArrowHighlight();
+        }
       }
     }
   }
