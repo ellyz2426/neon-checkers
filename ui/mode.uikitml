@@ -1,0 +1,14 @@
+<container flexDirection="column" alignItems="center" gap="6" padding="12">
+  <text fontSize="22" fontWeight="bold" color="#00ffff">SELECT MODE</text>
+  <container flexDirection="column" gap="4" alignItems="center" marginTop="6">
+    <text name="btn-solo" fontSize="13" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">SOLO vs AI</text>
+    <text name="btn-vsai" fontSize="13" color="#ff8800" borderWidth="1" borderColor="#ff8800" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">CHALLENGE AI</text>
+    <text name="btn-timed" fontSize="13" color="#ff3366" borderWidth="1" borderColor="#ff3366" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">TIMED (5 min)</text>
+    <text name="btn-blitz" fontSize="13" color="#ffcc00" borderWidth="1" borderColor="#ffcc00" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">BLITZ (2 min)</text>
+    <text name="btn-daily" fontSize="13" color="#33ff33" borderWidth="1" borderColor="#33ff33" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">DAILY PUZZLE</text>
+    <text name="btn-marathon" fontSize="13" color="#aa55ff" borderWidth="1" borderColor="#aa55ff" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">MARATHON</text>
+    <text name="btn-zen" fontSize="13" color="#55aaff" borderWidth="1" borderColor="#55aaff" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">ZEN MODE</text>
+    <text name="btn-practice" fontSize="13" color="#888888" borderWidth="1" borderColor="#888888" padding="5" paddingLeft="18" paddingRight="18" cursor="pointer" borderRadius="4">PRACTICE</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>

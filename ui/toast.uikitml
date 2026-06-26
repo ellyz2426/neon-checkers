@@ -1,0 +1,3 @@
+<container flexDirection="row" justifyContent="center" alignItems="center" padding="4" paddingLeft="10" paddingRight="10">
+  <text name="toast-text" fontSize="10" fontWeight="bold" color="#ffcc00"></text>
+</container>

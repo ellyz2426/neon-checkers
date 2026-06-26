@@ -1,0 +1,15 @@
+<container flexDirection="column" alignItems="center" gap="4" padding="10">
+  <text fontSize="20" fontWeight="bold" color="#00ff88">STATISTICS</text>
+  <container flexDirection="column" gap="3" alignItems="flex-start" marginTop="6" paddingLeft="8" paddingRight="8">
+    <text name="stat-games" fontSize="10" color="#aaaaaa">Games Played: 0</text>
+    <text name="stat-wins" fontSize="10" color="#aaaaaa">Wins: 0</text>
+    <text name="stat-captures" fontSize="10" color="#aaaaaa">Total Captures: 0</text>
+    <text name="stat-kings" fontSize="10" color="#aaaaaa">Kings Crowned: 0</text>
+    <text name="stat-streak" fontSize="10" color="#aaaaaa">Best Streak: 0</text>
+    <text name="stat-chain" fontSize="10" color="#aaaaaa">Best Chain Jump: 0</text>
+    <text name="stat-fastest" fontSize="10" color="#aaaaaa">Fastest Win: --</text>
+    <text name="stat-flawless" fontSize="10" color="#aaaaaa">Flawless Wins: 0</text>
+    <text name="stat-modes" fontSize="10" color="#aaaaaa">Modes Played: 0</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>

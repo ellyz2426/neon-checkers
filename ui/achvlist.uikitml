@@ -1,0 +1,32 @@
+<container flexDirection="column" alignItems="center" gap="3" padding="8">
+  <text fontSize="20" fontWeight="bold" color="#ff00ff">ACHIEVEMENTS</text>
+  <text name="ach-count" fontSize="11" color="#aaaaaa">0/25 Unlocked</text>
+  <container flexDirection="column" gap="2" alignItems="flex-start" marginTop="4" paddingLeft="4" paddingRight="4">
+    <text name="ach-0" fontSize="8" color="#888888">[ ] First Move</text>
+    <text name="ach-1" fontSize="8" color="#888888">[ ] Victor</text>
+    <text name="ach-2" fontSize="8" color="#888888">[ ] Regular</text>
+    <text name="ach-3" fontSize="8" color="#888888">[ ] Veteran</text>
+    <text name="ach-4" fontSize="8" color="#888888">[ ] Hunter</text>
+    <text name="ach-5" fontSize="8" color="#888888">[ ] Predator</text>
+    <text name="ach-6" fontSize="8" color="#888888">[ ] Chain Reaction</text>
+    <text name="ach-7" fontSize="8" color="#888888">[ ] Unstoppable</text>
+    <text name="ach-8" fontSize="8" color="#888888">[ ] Crowned</text>
+    <text name="ach-9" fontSize="8" color="#888888">[ ] Royal Court</text>
+    <text name="ach-10" fontSize="8" color="#888888">[ ] Flawless</text>
+    <text name="ach-11" fontSize="8" color="#888888">[ ] Apprentice</text>
+    <text name="ach-12" fontSize="8" color="#888888">[ ] Tactician</text>
+    <text name="ach-13" fontSize="8" color="#888888">[ ] Grandmaster</text>
+    <text name="ach-14" fontSize="8" color="#888888">[ ] Lightning</text>
+    <text name="ach-15" fontSize="8" color="#888888">[ ] Comeback Kid</text>
+    <text name="ach-16" fontSize="8" color="#888888">[ ] Clean Sweep</text>
+    <text name="ach-17" fontSize="8" color="#888888">[ ] Explorer</text>
+    <text name="ach-18" fontSize="8" color="#888888">[ ] Hot Streak</text>
+    <text name="ach-19" fontSize="8" color="#888888">[ ] On Fire</text>
+    <text name="ach-20" fontSize="8" color="#888888">[ ] Time Lord</text>
+    <text name="ach-21" fontSize="8" color="#888888">[ ] Royal Executioner</text>
+    <text name="ach-22" fontSize="8" color="#888888">[ ] Peasant Power</text>
+    <text name="ach-23" fontSize="8" color="#888888">[ ] Legend</text>
+    <text name="ach-24" fontSize="8" color="#888888">[ ] Perfect Game</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="3">BACK</text>
+</container>

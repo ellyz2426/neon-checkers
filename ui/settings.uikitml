@@ -1,0 +1,22 @@
+<container flexDirection="column" alignItems="center" gap="6" padding="12">
+  <text fontSize="22" fontWeight="bold" color="#00ffff">SETTINGS</text>
+  <container flexDirection="column" gap="5" alignItems="center" marginTop="6">
+    <container flexDirection="row" gap="6" alignItems="center">
+      <text fontSize="12" color="#aaaaaa">Sound FX:</text>
+      <text name="sfx-status" fontSize="12" color="#00ffff">ON</text>
+      <text name="btn-sfx" fontSize="11" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="3" paddingLeft="8" paddingRight="8" cursor="pointer" borderRadius="3">Toggle</text>
+    </container>
+    <container flexDirection="row" gap="6" alignItems="center">
+      <text fontSize="12" color="#aaaaaa">Music:</text>
+      <text name="music-status" fontSize="12" color="#00ffff">ON</text>
+      <text name="btn-music" fontSize="11" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="3" paddingLeft="8" paddingRight="8" cursor="pointer" borderRadius="3">Toggle</text>
+    </container>
+    <container flexDirection="row" gap="6" alignItems="center">
+      <text name="btn-theme-prev" fontSize="11" color="#ffaa00" borderWidth="1" borderColor="#ffaa00" padding="3" paddingLeft="6" paddingRight="6" cursor="pointer" borderRadius="3">&lt;</text>
+      <text name="theme-name" fontSize="12" color="#ffaa00">Neon Holodeck</text>
+      <text name="btn-theme-next" fontSize="11" color="#ffaa00" borderWidth="1" borderColor="#ffaa00" padding="3" paddingLeft="6" paddingRight="6" cursor="pointer" borderRadius="3">&gt;</text>
+    </container>
+    <text name="btn-reset" fontSize="11" color="#ff3366" borderWidth="1" borderColor="#ff3366" padding="4" paddingLeft="12" paddingRight="12" cursor="pointer" borderRadius="3" marginTop="4">RESET ALL DATA</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>

@@ -1,0 +1,21 @@
+<container flexDirection="column" alignItems="center" gap="5" padding="10">
+  <text fontSize="22" fontWeight="bold" color="#00ffff">HOW TO PLAY</text>
+  <container flexDirection="column" gap="3" alignItems="flex-start" marginTop="4" paddingLeft="6" paddingRight="6">
+    <text fontSize="10" color="#aaaaaa">Classic Checkers (Draughts)</text>
+    <text fontSize="9" color="#888888">- Click a piece to select it</text>
+    <text fontSize="9" color="#888888">- Click a highlighted square to move</text>
+    <text fontSize="9" color="#888888">- Pieces move diagonally forward</text>
+    <text fontSize="9" color="#888888">- Jump over enemy pieces to capture</text>
+    <text fontSize="9" color="#888888">- Captures are mandatory</text>
+    <text fontSize="9" color="#888888">- Multi-jumps: chain captures in one turn</text>
+    <text fontSize="9" color="#888888">- Reach the far row to become a King</text>
+    <text fontSize="9" color="#888888">- Kings move diagonally any direction</text>
+    <text fontSize="9" color="#888888">- Win by capturing all enemy pieces</text>
+    <text fontSize="10" color="#ffaa00" marginTop="3">Controls</text>
+    <text fontSize="9" color="#888888">- Mouse: Click pieces and squares</text>
+    <text fontSize="9" color="#888888">- VR: Point and trigger to interact</text>
+    <text fontSize="9" color="#888888">- ESC: Pause game</text>
+    <text fontSize="9" color="#888888">- R: Replay after game over</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>

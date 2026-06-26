@@ -1,0 +1,13 @@
+<container flexDirection="column" alignItems="center" gap="8" padding="12">
+  <text name="game-title" fontSize="28" fontWeight="bold" color="#00ffff">NEON CHECKERS</text>
+  <text name="subtitle" fontSize="12" color="#66ffff">Holographic Draughts</text>
+  <container flexDirection="column" gap="5" alignItems="center" marginTop="8">
+    <text name="btn-play" fontSize="14" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">PLAY</text>
+    <text name="btn-scores" fontSize="14" color="#ffaa00" borderWidth="1" borderColor="#ffaa00" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">SCORES</text>
+    <text name="btn-achievements" fontSize="14" color="#ff00ff" borderWidth="1" borderColor="#ff00ff" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">ACHIEVEMENTS</text>
+    <text name="btn-stats" fontSize="14" color="#00ff88" borderWidth="1" borderColor="#00ff88" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">STATS</text>
+    <text name="btn-skins" fontSize="14" color="#ff8800" borderWidth="1" borderColor="#ff8800" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">PIECE SKINS</text>
+    <text name="btn-settings" fontSize="14" color="#8888ff" borderWidth="1" borderColor="#8888ff" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">SETTINGS</text>
+    <text name="btn-help" fontSize="14" color="#888888" borderWidth="1" borderColor="#888888" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">HELP</text>
+  </container>
+</container>

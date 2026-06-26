@@ -1,0 +1,12 @@
+<container flexDirection="column" alignItems="center" gap="4" padding="10">
+  <text fontSize="20" fontWeight="bold" color="#ff8800">PIECE SKINS</text>
+  <container flexDirection="column" gap="3" alignItems="center" marginTop="4">
+    <text name="btn-skin-0" fontSize="10" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Classic Neon</text>
+    <text name="btn-skin-1" fontSize="10" color="#ff8800" borderWidth="1" borderColor="#ff8800" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Solar</text>
+    <text name="btn-skin-2" fontSize="10" color="#33ff33" borderWidth="1" borderColor="#33ff33" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Toxic</text>
+    <text name="btn-skin-3" fontSize="10" color="#55aaff" borderWidth="1" borderColor="#55aaff" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Frost</text>
+    <text name="btn-skin-4" fontSize="10" color="#ffcc00" borderWidth="1" borderColor="#ffcc00" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Gold</text>
+    <text name="btn-skin-5" fontSize="10" color="#aa33ff" borderWidth="1" borderColor="#aa33ff" padding="4" paddingLeft="14" paddingRight="14" cursor="pointer" borderRadius="3">Void</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>

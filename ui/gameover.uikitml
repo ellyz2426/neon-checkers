@@ -1,0 +1,8 @@
+<container flexDirection="column" alignItems="center" gap="8" padding="12">
+  <text name="result-text" fontSize="24" fontWeight="bold" color="#00ffff">GAME OVER</text>
+  <text name="result-detail" fontSize="11" color="#aaaaaa">---</text>
+  <container flexDirection="column" gap="5" alignItems="center" marginTop="8">
+    <text name="btn-replay" fontSize="14" color="#00ffff" borderWidth="1" borderColor="#00ffff" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">PLAY AGAIN</text>
+    <text name="btn-menu" fontSize="14" color="#888888" borderWidth="1" borderColor="#888888" padding="6" paddingLeft="20" paddingRight="20" cursor="pointer" borderRadius="4">MAIN MENU</text>
+  </container>
+</container>

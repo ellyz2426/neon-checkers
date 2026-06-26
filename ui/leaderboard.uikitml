@@ -1,0 +1,16 @@
+<container flexDirection="column" alignItems="center" gap="4" padding="10">
+  <text fontSize="20" fontWeight="bold" color="#ffaa00">LEADERBOARD</text>
+  <container flexDirection="column" gap="2" alignItems="flex-start" marginTop="4" paddingLeft="6" paddingRight="6">
+    <text name="score-0" fontSize="9" color="#00ffff">#1 ---</text>
+    <text name="score-1" fontSize="9" color="#aaaaaa">#2 ---</text>
+    <text name="score-2" fontSize="9" color="#aaaaaa">#3 ---</text>
+    <text name="score-3" fontSize="9" color="#888888">#4 ---</text>
+    <text name="score-4" fontSize="9" color="#888888">#5 ---</text>
+    <text name="score-5" fontSize="9" color="#888888">#6 ---</text>
+    <text name="score-6" fontSize="9" color="#888888">#7 ---</text>
+    <text name="score-7" fontSize="9" color="#888888">#8 ---</text>
+    <text name="score-8" fontSize="9" color="#888888">#9 ---</text>
+    <text name="score-9" fontSize="9" color="#888888">#10 ---</text>
+  </container>
+  <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
+</container>
