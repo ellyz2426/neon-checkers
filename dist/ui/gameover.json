@@ -7,14 +7,28 @@
         "sourceTag": "text",
         "type": "custom",
         "children": [
-          "PAUSED"
+          "GAME OVER"
         ],
         "properties": {
-          "fontsize": "22",
+          "name": "result-text",
+          "fontsize": "24",
           "fontweight": "bold",
-          "color": "#ffaa00"
+          "color": "#00ffff"
         },
         "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "---"
+        ],
+        "properties": {
+          "name": "result-detail",
+          "fontsize": "11",
+          "color": "#aaaaaa"
+        },
+        "dataUid": "uid-3"
       },
       {
         "sourceTag": "container",
@@ -24,34 +38,14 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "RESUME"
+              "PLAY AGAIN"
             ],
             "properties": {
-              "name": "btn-resume",
+              "name": "btn-replay",
               "fontsize": "14",
               "color": "#00ffff",
               "borderwidth": "1",
               "bordercolor": "#00ffff",
-              "padding": "6",
-              "paddingleft": "20",
-              "paddingright": "20",
-              "cursor": "pointer",
-              "borderradius": "4"
-            },
-            "dataUid": "uid-4"
-          },
-          {
-            "sourceTag": "text",
-            "type": "custom",
-            "children": [
-              "UNDO MOVE"
-            ],
-            "properties": {
-              "name": "btn-undo",
-              "fontsize": "14",
-              "color": "#55aaff",
-              "borderwidth": "1",
-              "bordercolor": "#55aaff",
               "padding": "6",
               "paddingleft": "20",
               "paddingright": "20",
@@ -64,14 +58,14 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "RESTART"
+              "MAIN MENU"
             ],
             "properties": {
-              "name": "btn-restart",
+              "name": "btn-menu",
               "fontsize": "14",
-              "color": "#ffaa00",
+              "color": "#888888",
               "borderwidth": "1",
-              "bordercolor": "#ffaa00",
+              "bordercolor": "#888888",
               "padding": "6",
               "paddingleft": "20",
               "paddingright": "20",
@@ -79,26 +73,6 @@
               "borderradius": "4"
             },
             "dataUid": "uid-6"
-          },
-          {
-            "sourceTag": "text",
-            "type": "custom",
-            "children": [
-              "QUIT"
-            ],
-            "properties": {
-              "name": "btn-quit",
-              "fontsize": "14",
-              "color": "#ff3366",
-              "borderwidth": "1",
-              "bordercolor": "#ff3366",
-              "padding": "6",
-              "paddingleft": "20",
-              "paddingright": "20",
-              "cursor": "pointer",
-              "borderradius": "4"
-            },
-            "dataUid": "uid-7"
           }
         ],
         "properties": {
@@ -107,7 +81,7 @@
           "alignitems": "center",
           "margintop": "8"
         },
-        "dataUid": "uid-3"
+        "dataUid": "uid-4"
       }
     ],
     "properties": {
@@ -126,7 +100,7 @@
         "column": 0
       },
       "end": {
-        "line": 8,
+        "line": 7,
         "column": 12
       }
     },
@@ -137,7 +111,7 @@
       },
       "end": {
         "line": 1,
-        "column": 69
+        "column": 91
       }
     },
     "uid-3": {
@@ -146,18 +120,18 @@
         "column": 2
       },
       "end": {
-        "line": 7,
-        "column": 14
+        "line": 2,
+        "column": 69
       }
     },
     "uid-4": {
       "start": {
         "line": 3,
-        "column": 4
+        "column": 2
       },
       "end": {
-        "line": 3,
-        "column": 190
+        "line": 6,
+        "column": 14
       }
     },
     "uid-5": {
@@ -167,7 +141,7 @@
       },
       "end": {
         "line": 4,
-        "column": 191
+        "column": 194
       }
     },
     "uid-6": {
@@ -177,17 +151,7 @@
       },
       "end": {
         "line": 5,
-        "column": 192
-      }
-    },
-    "uid-7": {
-      "start": {
-        "line": 6,
-        "column": 4
-      },
-      "end": {
-        "line": 6,
-        "column": 186
+        "column": 191
       }
     }
   }

@@ -1,6 +1,7 @@
 // ============================================================
-// NEON CHECKERS VR — Holographic Draughts Game
-// Built with IWSDK 0.4.x — playable in VR and browser
+// NEON CHECKERS VR - Holographic Draughts Game
+// Built with IWSDK 0.4.x - playable in VR and browser
+// Round 2: animations, particles, countdown, undo, hover effects
 // ============================================================
 
 import {
@@ -12,6 +13,7 @@ import {
   Follower, ScreenSpace, InputComponent,
   PlaneGeometry, RingGeometry, TorusGeometry, DoubleSide,
   Vector3, Raycaster, Vector2,
+  AdditiveBlending,
 } from '@iwsdk/core';
 
 interface RuntimeInput {
@@ -25,7 +27,7 @@ interface RuntimeInput {
 // ============================================================
 // TYPES
 // ============================================================
-type Screen = 'title'|'modeselect'|'difficulty'|'playing'|'paused'|'gameover'|
+type Screen = 'title'|'modeselect'|'difficulty'|'countdown'|'playing'|'paused'|'gameover'|
   'leaderboard'|'achievements'|'stats'|'settings'|'help'|'skins';
 type Mode = 'solo'|'vsai'|'timed'|'blitz'|'daily'|'marathon'|'zen'|'practice';
 type PieceColor = 'red'|'black';
@@ -152,6 +154,9 @@ const sfxWin = () => { playTone(523, 0.15, 0.15); playTone(659, 0.15, 0.12); pla
 const sfxLose = () => { playTone(392, 0.2, 0.12); playTone(330, 0.2, 0.1); playTone(262, 0.3, 0.12); };
 const sfxClick = () => playTone(800, 0.05, 0.08, 'triangle');
 const sfxSelect = () => playTone(600, 0.08, 0.1, 'triangle');
+const sfxCountdown = () => playTone(523, 0.15, 0.12, 'triangle');
+const sfxCountdownGo = () => { playTone(1047, 0.2, 0.15); playTone(1319, 0.15, 0.12); };
+const sfxUndo = () => { playTone(330, 0.1, 0.1, 'triangle'); playTone(262, 0.12, 0.08, 'triangle'); };
 
 // ============================================================
 // BOARD LOGIC
@@ -268,6 +273,172 @@ function aiMove(board: Cell[][], diff: number): Move|null {
 }
 
 // ============================================================
+// ANIMATION SYSTEM
+// ============================================================
+interface PieceAnim {
+  mesh: Mesh;
+  crown: Mesh|null;
+  fromX: number; fromZ: number; fromY: number;
+  toX: number; toZ: number; toY: number;
+  progress: number;
+  duration: number;
+  onComplete?: () => void;
+}
+
+interface CaptureParticle {
+  mesh: Mesh;
+  vx: number; vy: number; vz: number;
+  life: number; maxLife: number;
+}
+
+interface AmbientParticle {
+  mesh: Mesh;
+  baseY: number;
+  speed: number;
+  phase: number;
+  drift: number;
+}
+
+const activeAnims: PieceAnim[] = [];
+const captureParticles: CaptureParticle[] = [];
+const ambientParticles: AmbientParticle[] = [];
+let animating = false;
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
+}
+
+function easeOutBounce(t: number): number {
+  const n1 = 7.5625, d1 = 2.75;
+  if (t < 1/d1) return n1*t*t;
+  else if (t < 2/d1) return n1*(t-=1.5/d1)*t+0.75;
+  else if (t < 2.5/d1) return n1*(t-=2.25/d1)*t+0.9375;
+  else return n1*(t-=2.625/d1)*t+0.984375;
+}
+
+function animatePieceMove(fromR: number, fromC: number, toR: number, toC: number, onComplete?: () => void) {
+  const mesh = pieceMeshes[fromR][fromC];
+  const crown = crownMeshes[fromR][fromC];
+  if (!mesh) { onComplete?.(); return; }
+  const fromPos = cellToWorld(fromR, fromC);
+  const toPos = cellToWorld(toR, toC);
+  const dist = Math.sqrt((toPos.x-fromPos.x)**2 + (toPos.z-fromPos.z)**2);
+  const duration = 0.25 + dist * 0.5;
+  activeAnims.push({
+    mesh, crown,
+    fromX: fromPos.x, fromZ: fromPos.z, fromY: PIECE_HEIGHT/2+0.008,
+    toX: toPos.x, toZ: toPos.z, toY: PIECE_HEIGHT/2+0.008,
+    progress: 0, duration,
+    onComplete,
+  });
+  animating = true;
+}
+
+function spawnCaptureParticles(r: number, c: number, color: PieceColor) {
+  const pos = cellToWorld(r, c);
+  const th = THEMES[save.selectedTheme];
+  const pColor = color === 'red' ? SKINS[save.selectedSkin].redEdge : SKINS[save.selectedSkin].blackEdge;
+  const count = 12;
+  for (let i=0; i<count; i++) {
+    const geo = new SphereGeometry(0.005 + Math.random()*0.005, 6, 6);
+    const mat = new MeshBasicMaterial({
+      color: new Color(i % 3 === 0 ? th.accent : pColor),
+      transparent: true, opacity: 1.0,
+    });
+    const mesh = new Mesh(geo, mat);
+    mesh.position.set(pos.x, PIECE_HEIGHT/2+0.008, pos.z);
+    boardGroup.add(mesh);
+    const angle = (i/count) * Math.PI * 2 + Math.random()*0.5;
+    const speed = 0.3 + Math.random()*0.4;
+    captureParticles.push({
+      mesh,
+      vx: Math.cos(angle) * speed,
+      vy: 0.5 + Math.random()*0.8,
+      vz: Math.sin(angle) * speed,
+      life: 0.6 + Math.random()*0.4,
+      maxLife: 0.6 + Math.random()*0.4,
+    });
+  }
+}
+
+function createAmbientParticles(scene: Object3D) {
+  const th = THEMES[save.selectedTheme];
+  for (let i=0; i<30; i++) {
+    const geo = new SphereGeometry(0.003 + Math.random()*0.004, 4, 4);
+    const mat = new MeshBasicMaterial({
+      color: new Color(th.accent), transparent: true,
+      opacity: 0.15 + Math.random()*0.25,
+    });
+    const mesh = new Mesh(geo, mat);
+    const x = (Math.random()-0.5)*4;
+    const y = 0.3 + Math.random()*2.5;
+    const z = (Math.random()-0.5)*4 - 0.5;
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    ambientParticles.push({
+      mesh, baseY: y,
+      speed: 0.1 + Math.random()*0.2,
+      phase: Math.random()*Math.PI*2,
+      drift: 0.2 + Math.random()*0.3,
+    });
+  }
+}
+
+function updateAnimations(dt: number) {
+  // Piece move animations
+  for (let i=activeAnims.length-1; i>=0; i--) {
+    const a = activeAnims[i];
+    a.progress += dt / a.duration;
+    if (a.progress >= 1) {
+      a.mesh.position.set(a.toX, a.toY, a.toZ);
+      if (a.crown) a.crown.position.set(a.toX, PIECE_HEIGHT+0.012, a.toZ);
+      a.onComplete?.();
+      activeAnims.splice(i, 1);
+    } else {
+      const t = easeInOutCubic(a.progress);
+      const x = a.fromX + (a.toX - a.fromX) * t;
+      const z = a.fromZ + (a.toZ - a.fromZ) * t;
+      // Arc motion - piece lifts in the middle of the move
+      const arcH = 0.06 * Math.sin(a.progress * Math.PI);
+      const y = a.toY + arcH;
+      a.mesh.position.set(x, y, z);
+      if (a.crown) a.crown.position.set(x, PIECE_HEIGHT+0.012+arcH, z);
+    }
+  }
+  if (activeAnims.length === 0) animating = false;
+
+  // Capture particles
+  for (let i=captureParticles.length-1; i>=0; i--) {
+    const p = captureParticles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      boardGroup.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      (p.mesh.material as MeshBasicMaterial).dispose();
+      captureParticles.splice(i, 1);
+    } else {
+      p.mesh.position.x += p.vx * dt;
+      p.mesh.position.y += p.vy * dt;
+      p.mesh.position.z += p.vz * dt;
+      p.vy -= 2.0 * dt; // gravity
+      const alpha = p.life / p.maxLife;
+      (p.mesh.material as MeshBasicMaterial).opacity = alpha;
+      const scale = 0.5 + alpha * 0.5;
+      p.mesh.scale.setScalar(scale);
+    }
+  }
+
+  // Ambient particles
+  const now = Date.now() * 0.001;
+  for (const ap of ambientParticles) {
+    ap.mesh.position.y = ap.baseY + Math.sin(now * ap.speed + ap.phase) * ap.drift;
+    ap.mesh.position.x += Math.sin(now * 0.3 + ap.phase) * 0.0002;
+    const pulse = 0.15 + Math.sin(now * ap.speed * 2 + ap.phase) * 0.1;
+    (ap.mesh.material as MeshBasicMaterial).opacity = Math.max(0.05, pulse);
+  }
+}
+
+// ============================================================
 // GAME STATE (module-level)
 // ============================================================
 let save = loadSave();
@@ -291,12 +462,34 @@ let timerAcc = 0;
 let aiThinking = false;
 let toastTimer = 0;
 
+// Countdown state
+let countdownValue = 3;
+let countdownTimer = 0;
+
+// Move history for undo
+interface MoveRecord {
+  board: Cell[][];
+  move: Move;
+  turn: PieceColor;
+  playerCaptures: number;
+  aiCaptures: number;
+  playerKings: number;
+  piecesLost: number;
+}
+let moveHistory: MoveRecord[] = [];
+let undoAvailable = false;
+
+// Hover state
+let hoveredCell: Pos|null = null;
+let hoverMesh: Mesh|null = null;
+
 // 3D objects
 let boardGroup: Group;
 let pieceMeshes: (Mesh|null)[][] = [];
 let crownMeshes: (Mesh|null)[][] = [];
 let highlightMeshes: Mesh[] = [];
 let selectedHighlight: Mesh|null = null;
+let boardEdgeMeshes: Mesh[] = [];
 
 // ============================================================
 // PANEL MANAGER
@@ -336,20 +529,40 @@ class Panels {
   }
 
   wireDiff() {
-    this.oc('difficulty','btn-easy',()=>{ sfxClick(); difficulty=0; startGame(); this.vis(); });
-    this.oc('difficulty','btn-medium',()=>{ sfxClick(); difficulty=1; startGame(); this.vis(); });
-    this.oc('difficulty','btn-hard',()=>{ sfxClick(); difficulty=2; startGame(); this.vis(); });
+    this.oc('difficulty','btn-easy',()=>{ sfxClick(); difficulty=0; beginCountdown(); });
+    this.oc('difficulty','btn-medium',()=>{ sfxClick(); difficulty=1; beginCountdown(); });
+    this.oc('difficulty','btn-hard',()=>{ sfxClick(); difficulty=2; beginCountdown(); });
     this.oc('difficulty','btn-back',()=>{ sfxClick(); screen='modeselect'; this.vis(); });
   }
 
   wirePause() {
     this.oc('pause','btn-resume',()=>{ sfxClick(); screen='playing'; this.vis(); });
-    this.oc('pause','btn-restart',()=>{ sfxClick(); startGame(); this.vis(); });
+    this.oc('pause','btn-restart',()=>{ sfxClick(); beginCountdown(); });
     this.oc('pause','btn-quit',()=>{ sfxClick(); screen='title'; this.vis(); });
+    this.oc('pause','btn-undo',()=>{
+      if (undoAvailable && moveHistory.length >= 2) {
+        sfxUndo();
+        // Undo AI move + player move (2 moves back)
+        moveHistory.pop(); // remove AI move
+        const prev = moveHistory.pop()!; // remove player move
+        board = prev.board;
+        turn = 'red';
+        playerCaptures = prev.playerCaptures;
+        aiCaptures = prev.aiCaptures;
+        playerKingsThisGame = prev.playerKings;
+        piecesLost = prev.piecesLost;
+        allMoves = getAllMoves(board, 'red');
+        selected = null; validMoves = [];
+        syncBoardVisuals(); clearHighlights();
+        undoAvailable = moveHistory.length >= 2;
+        screen = 'playing'; this.vis();
+        this.showToast('Move undone');
+      }
+    });
   }
 
   wireGameover() {
-    this.oc('gameover','btn-replay',()=>{ sfxClick(); startGame(); this.vis(); });
+    this.oc('gameover','btn-replay',()=>{ sfxClick(); beginCountdown(); });
     this.oc('gameover','btn-menu',()=>{ sfxClick(); screen='title'; this.vis(); });
   }
 
@@ -372,6 +585,10 @@ class Panels {
       sfxClick(); if (SKINS[i].req(save)) { save.selectedSkin=i; writeSave(save); this.updSkins(); syncBoardVisuals(); }
     });
     this.oc('skins','btn-back',()=>{ sfxClick(); screen='title'; this.vis(); });
+  }
+
+  wireCountdown() {
+    // countdown panel is display-only
   }
 
   updHUD() {
@@ -445,6 +662,41 @@ class Panels {
 const panels = new Panels();
 
 // ============================================================
+// COUNTDOWN
+// ============================================================
+function beginCountdown() {
+  // Set up the board first so it's visible during countdown
+  board = initBoard();
+  syncBoardVisuals();
+  clearHighlights();
+
+  countdownValue = 3;
+  countdownTimer = 0;
+  screen = 'countdown';
+  panels.st('countdown', 'countdown-text', '3');
+  panels.vis();
+  sfxCountdown();
+}
+
+function updateCountdown(dt: number) {
+  if (screen !== 'countdown') return;
+  countdownTimer += dt;
+  if (countdownTimer >= 1.0) {
+    countdownTimer -= 1.0;
+    countdownValue--;
+    if (countdownValue <= 0) {
+      sfxCountdownGo();
+      panels.st('countdown', 'countdown-text', 'GO!');
+      // Short delay then start
+      setTimeout(() => { startGame(); panels.vis(); }, 300);
+    } else {
+      sfxCountdown();
+      panels.st('countdown', 'countdown-text', String(countdownValue));
+    }
+  }
+}
+
+// ============================================================
 // GAME FLOW
 // ============================================================
 function checkAchievements() {
@@ -456,6 +708,7 @@ function startGame() {
   board=initBoard(); turn='red'; selected=null; validMoves=[]; playerCaptures=0; aiCaptures=0;
   playerKingsThisGame=0; piecesLost=0; worstDeficit=0; aiThinking=false;
   gameStartTime=Date.now(); gameDuration=0; timerAcc=0;
+  moveHistory=[]; undoAvailable=false;
   if (mode==='timed') timerSec=300; else if (mode==='blitz') timerSec=120; else timerSec=0;
   allMoves=getAllMoves(board,'red');
   syncBoardVisuals(); clearHighlights(); screen='playing'; panels.vis();
@@ -483,7 +736,7 @@ function endGame(winner: PieceColor|'draw') {
 }
 
 function handleCellClick(r: number, c: number) {
-  if (screen!=='playing'||turn!=='red'||aiThinking) return;
+  if (screen!=='playing'||turn!=='red'||aiThinking||animating) return;
   const cell=board[r][c];
   if (cell.piece==='red') {
     const pm=allMoves.filter(m=>m.from.r===r&&m.from.c===c);
@@ -497,7 +750,25 @@ function handleCellClick(r: number, c: number) {
 }
 
 function applyPlayerMove(move: Move) {
+  // Save state for undo before applying
+  moveHistory.push({
+    board: cloneBoard(board),
+    move,
+    turn: 'red',
+    playerCaptures,
+    aiCaptures,
+    playerKings: playerKingsThisGame,
+    piecesLost,
+  });
+
   const wasKing=board[move.from.r][move.from.c].king;
+
+  // Spawn capture particles BEFORE removing pieces
+  for (const cap of move.captures) {
+    const capturedColor = board[cap.r][cap.c].piece;
+    if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
+  }
+
   board=executeMove(board,move);
   playerCaptures+=move.captures.length;
   if (move.captures.length>0) {
@@ -506,11 +777,22 @@ function applyPlayerMove(move: Move) {
     sfxCapture();
   } else sfxMove();
   if (!wasKing&&board[move.to.r][move.to.c].king) { playerKingsThisGame++; sfxKing(); }
-  selected=null; validMoves=[]; clearHighlights(); syncBoardVisuals();
-  const w=checkWinnerStatic(board);
-  if (w) { endGame(w); return; }
-  if (getAllMoves(board,'black').length===0) { endGame('red'); return; }
-  turn='black'; allMoves=getAllMoves(board,'black'); doAiTurn();
+  selected=null; validMoves=[]; clearHighlights();
+
+  // Animate the piece movement
+  animatePieceMove(move.from.r, move.from.c, move.to.r, move.to.c, () => {
+    syncBoardVisuals();
+    const w=checkWinnerStatic(board);
+    if (w) { endGame(w); return; }
+    if (getAllMoves(board,'black').length===0) { endGame('red'); return; }
+    turn='black'; allMoves=getAllMoves(board,'black'); doAiTurn();
+  });
+
+  // Immediately update visuals for captured pieces
+  for (const cap of move.captures) {
+    if (pieceMeshes[cap.r][cap.c]) { boardGroup.remove(pieceMeshes[cap.r][cap.c]!); pieceMeshes[cap.r][cap.c]=null; }
+    if (crownMeshes[cap.r][cap.c]) { boardGroup.remove(crownMeshes[cap.r][cap.c]!); crownMeshes[cap.r][cap.c]=null; }
+  }
 }
 
 function doAiTurn() {
@@ -518,18 +800,48 @@ function doAiTurn() {
   setTimeout(()=>{
     const move=aiMove(board,difficulty);
     if (!move) { endGame('red'); aiThinking=false; return; }
+
+    // Save AI state for undo
+    moveHistory.push({
+      board: cloneBoard(board),
+      move,
+      turn: 'black',
+      playerCaptures,
+      aiCaptures,
+      playerKings: playerKingsThisGame,
+      piecesLost,
+    });
+    undoAvailable = true;
+
     const wasKing=board[move.from.r][move.from.c].king;
+
+    // Spawn capture particles
+    for (const cap of move.captures) {
+      const capturedColor = board[cap.r][cap.c].piece;
+      if (capturedColor) spawnCaptureParticles(cap.r, cap.c, capturedColor);
+    }
+
     board=executeMove(board,move);
     aiCaptures+=move.captures.length;
     if (move.captures.length>0) { piecesLost+=move.captures.length; sfxCapture(); } else sfxMove();
     if (!wasKing&&board[move.to.r][move.to.c].king) sfxKing();
     const deficit=countPieces(board,'black')-countPieces(board,'red');
     if (deficit>worstDeficit) worstDeficit=deficit;
-    syncBoardVisuals();
-    const w=checkWinnerStatic(board);
-    if (w) { endGame(w); aiThinking=false; return; }
-    if (getAllMoves(board,'red').length===0) { endGame('black'); aiThinking=false; return; }
-    turn='red'; allMoves=getAllMoves(board,'red'); aiThinking=false;
+
+    // Remove captured piece visuals immediately
+    for (const cap of move.captures) {
+      if (pieceMeshes[cap.r][cap.c]) { boardGroup.remove(pieceMeshes[cap.r][cap.c]!); pieceMeshes[cap.r][cap.c]=null; }
+      if (crownMeshes[cap.r][cap.c]) { boardGroup.remove(crownMeshes[cap.r][cap.c]!); crownMeshes[cap.r][cap.c]=null; }
+    }
+
+    // Animate AI piece movement
+    animatePieceMove(move.from.r, move.from.c, move.to.r, move.to.c, () => {
+      syncBoardVisuals();
+      const w=checkWinnerStatic(board);
+      if (w) { endGame(w); aiThinking=false; return; }
+      if (getAllMoves(board,'red').length===0) { endGame('black'); aiThinking=false; return; }
+      turn='red'; allMoves=getAllMoves(board,'red'); aiThinking=false;
+    });
   }, 300+Math.random()*400);
 }
 
@@ -560,11 +872,34 @@ function createBoardVisuals(scene: Object3D) {
     mesh.position.set(pos.x,0.005,pos.z);
     mesh.userData={boardCell:true,row:r,col:c}; boardGroup.add(mesh);
   }
+
+  // Board edge accents with pulsing capability
+  boardEdgeMeshes = [];
   const eMat=new MeshStandardMaterial({color:new Color(th.accent),emissive:new Color(th.accent),emissiveIntensity:0.5,metalness:0.8,roughness:0.2});
   const eg1=new BoxGeometry(CELL_SIZE*8+0.01,0.003,0.005);
-  for (const z of [-1,1]) { const e=new Mesh(eg1,eMat); e.position.set(0,0.008,z*(CELL_SIZE*4+0.005)); boardGroup.add(e); }
+  for (const z of [-1,1]) { const e=new Mesh(eg1,eMat.clone()); e.position.set(0,0.008,z*(CELL_SIZE*4+0.005)); boardGroup.add(e); boardEdgeMeshes.push(e); }
   const eg2=new BoxGeometry(0.005,0.003,CELL_SIZE*8+0.01);
-  for (const x of [-1,1]) { const e=new Mesh(eg2,eMat); e.position.set(x*(CELL_SIZE*4+0.005),0.008,0); boardGroup.add(e); }
+  for (const x of [-1,1]) { const e=new Mesh(eg2,eMat.clone()); e.position.set(x*(CELL_SIZE*4+0.005),0.008,0); boardGroup.add(e); boardEdgeMeshes.push(e); }
+
+  // Corner accent dots
+  const dotGeo = new SphereGeometry(0.008, 8, 8);
+  const dotMat = new MeshStandardMaterial({color:new Color(th.accent),emissive:new Color(th.accent),emissiveIntensity:0.8,metalness:0.9,roughness:0.1});
+  const bSize = CELL_SIZE*4+0.005;
+  for (const [x,z] of [[-bSize,-bSize],[bSize,-bSize],[-bSize,bSize],[bSize,bSize]]) {
+    const dot = new Mesh(dotGeo, dotMat.clone());
+    dot.position.set(x, 0.012, z);
+    boardGroup.add(dot);
+    boardEdgeMeshes.push(dot);
+  }
+
+  // Hover indicator mesh
+  const hoverGeo = new BoxGeometry(CELL_SIZE-0.005, 0.002, CELL_SIZE-0.005);
+  const hoverMat = new MeshBasicMaterial({color:new Color(th.accent), transparent:true, opacity:0});
+  hoverMesh = new Mesh(hoverGeo, hoverMat);
+  hoverMesh.position.set(0, 0.009, 0);
+  hoverMesh.visible = false;
+  boardGroup.add(hoverMesh);
+
   pieceMeshes=[]; crownMeshes=[];
   for (let r=0;r<8;r++) { pieceMeshes[r]=[]; crownMeshes[r]=[]; for (let c=0;c<8;c++) { pieceMeshes[r][c]=null; crownMeshes[r][c]=null; } }
 }
@@ -624,6 +959,28 @@ function showHighlights() {
   }
 }
 
+function updateHoverEffect(r: number, c: number) {
+  if (!hoverMesh) return;
+  if (screen !== 'playing' || turn !== 'red' || aiThinking || animating) {
+    hoverMesh.visible = false;
+    hoveredCell = null;
+    return;
+  }
+  // Only show hover on cells the player can interact with
+  const cell = board[r][c];
+  const isOwnPiece = cell.piece === 'red';
+  const isValidTarget = selected ? validMoves.some(m => m.to.r === r && m.to.c === c) : false;
+  if (isOwnPiece || isValidTarget) {
+    const pos = cellToWorld(r, c);
+    hoverMesh.position.set(pos.x, 0.009, pos.z);
+    hoverMesh.visible = true;
+    hoveredCell = { r, c };
+  } else {
+    hoverMesh.visible = false;
+    hoveredCell = null;
+  }
+}
+
 function createEnvironment(scene: Object3D) {
   const th=THEMES[save.selectedTheme];
   (scene as any).background=new Color(th.bg);
@@ -632,6 +989,10 @@ function createEnvironment(scene: Object3D) {
   const dir=new DirectionalLight(new Color('#ffffff'),0.6); dir.position.set(2,4,2); scene.add(dir);
   const a1=new PointLight(new Color(th.accent),1,5); a1.position.set(-1,2,-1); scene.add(a1);
   const a2=new PointLight(new Color(th.accent),0.5,5); a2.position.set(1,2,1); scene.add(a2);
+
+  // Additional accent lights for atmosphere
+  const a3=new PointLight(new Color(th.accent),0.3,3); a3.position.set(0,1.5,-0.5); scene.add(a3);
+
   const gMat=new LineBasicMaterial({color:new Color(th.gridC),transparent:true,opacity:0.3});
   const gv: number[] = [];
   for (let i=-20;i<=20;i+=0.5) { gv.push(i,0,-20,i,0,20,-20,0,i,20,0,i); }
@@ -643,6 +1004,9 @@ function createEnvironment(scene: Object3D) {
   for (const [x,z] of [[-bSize,-bSize],[bSize,-bSize],[-bSize,bSize],[bSize,bSize]]) {
     const p=new Mesh(pGeo,pMat); p.position.set(x,BOARD_Y+0.5,z-0.5); scene.add(p);
   }
+
+  // Ambient floating particles
+  createAmbientParticles(scene);
 }
 
 // ============================================================
@@ -673,6 +1037,7 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
         case 'skins': panels.wireSkins(); break;
         case 'leaderboard': panels.wireLB(); break;
         case 'help': panels.wireHelp(); break;
+        case 'countdown': panels.wireCountdown(); break;
       }
       panels.vis();
     });
@@ -683,24 +1048,77 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
   }
 
   update(dt: number) {
+    // Countdown
+    updateCountdown(dt);
+
+    // Timer
     if (screen==='playing'&&(mode==='timed'||mode==='blitz')) {
       timerAcc+=dt; if (timerAcc>=1) { timerAcc-=1; timerSec--; if (timerSec<=0) { endGame('black'); return; } }
     }
     if (screen==='playing') panels.updHUD();
+
+    // Toast
     if (toastTimer>0) { toastTimer-=dt; if (toastTimer<=0) {
       const info=panels.entities.get('toast'); if (info?.entity?.object3D) info.entity.object3D.visible=false;
     }}
+
+    // Animations
+    updateAnimations(dt);
+
+    // Highlight pulse
     const pulse=Math.sin(Date.now()*0.005)*0.3+0.5;
     for (const h of highlightMeshes) (h.material as MeshBasicMaterial).opacity=pulse;
     if (selectedHighlight) (selectedHighlight.material as MeshBasicMaterial).opacity=pulse;
+
+    // Board edge glow pulse
+    const edgePulse = 0.3 + Math.sin(Date.now()*0.002)*0.2;
+    for (const edge of boardEdgeMeshes) {
+      (edge.material as MeshStandardMaterial).emissiveIntensity = edgePulse;
+    }
+
+    // Hover glow pulse
+    if (hoverMesh && hoverMesh.visible) {
+      const hoverPulse = 0.15 + Math.sin(Date.now()*0.006)*0.1;
+      (hoverMesh.material as MeshBasicMaterial).opacity = hoverPulse;
+    }
+
+    // Movable piece subtle glow (pulse pieces that can move)
+    if (screen === 'playing' && turn === 'red' && !aiThinking && !animating && !selected) {
+      const movablePulse = 0.25 + Math.sin(Date.now()*0.004)*0.1;
+      for (const m of allMoves) {
+        const pm = pieceMeshes[m.from.r]?.[m.from.c];
+        if (pm) {
+          (pm.material as MeshStandardMaterial).emissiveIntensity = movablePulse;
+        }
+      }
+    }
+
+    // Keyboard input
     const inp=(this.world as any).input as RuntimeInput|undefined;
     if (inp?.keyboard) {
       if (inp.keyboard.getKeyDown('Escape')) {
         if (screen==='playing') { screen='paused'; panels.vis(); }
         else if (screen==='paused') { screen='playing'; panels.vis(); }
       }
-      if (inp.keyboard.getKeyDown('KeyR')&&screen==='gameover') { startGame(); panels.vis(); }
+      if (inp.keyboard.getKeyDown('KeyR')&&screen==='gameover') { beginCountdown(); panels.vis(); }
       if (inp.keyboard.getKeyDown('KeyM')&&screen==='gameover') { screen='title'; panels.vis(); }
+      // Undo with U key or Ctrl+Z
+      if (inp.keyboard.getKeyDown('KeyU')&&screen==='playing'&&undoAvailable&&moveHistory.length>=2&&!animating&&!aiThinking) {
+        sfxUndo();
+        moveHistory.pop(); // AI move
+        const prev = moveHistory.pop()!;
+        board = prev.board;
+        turn = 'red';
+        playerCaptures = prev.playerCaptures;
+        aiCaptures = prev.aiCaptures;
+        playerKingsThisGame = prev.playerKings;
+        piecesLost = prev.piecesLost;
+        allMoves = getAllMoves(board, 'red');
+        selected = null; validMoves = [];
+        syncBoardVisuals(); clearHighlights();
+        undoAvailable = moveHistory.length >= 2;
+        panels.showToast('Move undone');
+      }
     }
   }
 }
@@ -719,6 +1137,27 @@ async function main() {
 
   const raycaster = new Raycaster();
   const mouse = new Vector2();
+  let lastMouse = new Vector2();
+
+  container.addEventListener('pointermove', (e: PointerEvent) => {
+    lastMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    lastMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    // Hover detection
+    raycaster.setFromCamera(lastMouse, world.camera);
+    if (boardGroup) {
+      const cells = boardGroup.children.filter((c: any) => c.userData?.boardCell || c.userData?.isPiece);
+      const hits = raycaster.intersectObjects(cells, false);
+      if (hits.length > 0) {
+        const hit = hits[0].object;
+        const r = hit.userData.row, c = hit.userData.col;
+        if (r !== undefined && c !== undefined) updateHoverEffect(r, c);
+      } else {
+        if (hoverMesh) hoverMesh.visible = false;
+        hoveredCell = null;
+      }
+    }
+  });
+
   container.addEventListener('pointerdown', (e: PointerEvent) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -744,6 +1183,7 @@ async function main() {
     { config:'./ui/title.json', pos:[0,1.6,-2.5], scale:2.5, fol:false, scr:['title'] },
     { config:'./ui/mode.json', pos:[0,1.6,-2.5], scale:2.5, fol:false, scr:['modeselect'] },
     { config:'./ui/difficulty.json', pos:[0,1.6,-2.5], scale:2.5, fol:false, scr:['difficulty'] },
+    { config:'./ui/countdown.json', pos:[0,1.8,-1.8], scale:3.0, fol:false, scr:['countdown'] },
     { config:'./ui/hud.json', pos:[0,2.0,-2.0], scale:1.8, fol:true, scr:['playing'] },
     { config:'./ui/pause.json', pos:[0,1.6,-2.0], scale:2.5, fol:false, scr:['paused'] },
     { config:'./ui/gameover.json', pos:[0,1.6,-2.5], scale:2.5, fol:false, scr:['gameover'] },

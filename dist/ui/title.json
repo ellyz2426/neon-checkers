@@ -1,0 +1,308 @@
+{
+  "element": {
+    "sourceTag": "container",
+    "type": "custom",
+    "children": [
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "NEON CHECKERS"
+        ],
+        "properties": {
+          "name": "game-title",
+          "fontsize": "28",
+          "fontweight": "bold",
+          "color": "#00ffff"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [
+          "Holographic Draughts"
+        ],
+        "properties": {
+          "name": "subtitle",
+          "fontsize": "12",
+          "color": "#66ffff"
+        },
+        "dataUid": "uid-3"
+      },
+      {
+        "sourceTag": "container",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "PLAY"
+            ],
+            "properties": {
+              "name": "btn-play",
+              "fontsize": "14",
+              "color": "#00ffff",
+              "borderwidth": "1",
+              "bordercolor": "#00ffff",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-5"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "SCORES"
+            ],
+            "properties": {
+              "name": "btn-scores",
+              "fontsize": "14",
+              "color": "#ffaa00",
+              "borderwidth": "1",
+              "bordercolor": "#ffaa00",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-6"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "ACHIEVEMENTS"
+            ],
+            "properties": {
+              "name": "btn-achievements",
+              "fontsize": "14",
+              "color": "#ff00ff",
+              "borderwidth": "1",
+              "bordercolor": "#ff00ff",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-7"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "STATS"
+            ],
+            "properties": {
+              "name": "btn-stats",
+              "fontsize": "14",
+              "color": "#00ff88",
+              "borderwidth": "1",
+              "bordercolor": "#00ff88",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-8"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "PIECE SKINS"
+            ],
+            "properties": {
+              "name": "btn-skins",
+              "fontsize": "14",
+              "color": "#ff8800",
+              "borderwidth": "1",
+              "bordercolor": "#ff8800",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-9"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "SETTINGS"
+            ],
+            "properties": {
+              "name": "btn-settings",
+              "fontsize": "14",
+              "color": "#8888ff",
+              "borderwidth": "1",
+              "bordercolor": "#8888ff",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-10"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "HELP"
+            ],
+            "properties": {
+              "name": "btn-help",
+              "fontsize": "14",
+              "color": "#888888",
+              "borderwidth": "1",
+              "bordercolor": "#888888",
+              "padding": "6",
+              "paddingleft": "20",
+              "paddingright": "20",
+              "cursor": "pointer",
+              "borderradius": "4"
+            },
+            "dataUid": "uid-11"
+          }
+        ],
+        "properties": {
+          "flexdirection": "column",
+          "gap": "5",
+          "alignitems": "center",
+          "margintop": "8"
+        },
+        "dataUid": "uid-4"
+      }
+    ],
+    "properties": {
+      "flexdirection": "column",
+      "alignitems": "center",
+      "gap": "8",
+      "padding": "12"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {},
+  "ranges": {
+    "uid-1": {
+      "start": {
+        "line": 0,
+        "column": 0
+      },
+      "end": {
+        "line": 12,
+        "column": 12
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 94
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 2,
+        "column": 2
+      },
+      "end": {
+        "line": 2,
+        "column": 81
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 3,
+        "column": 2
+      },
+      "end": {
+        "line": 11,
+        "column": 14
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 4,
+        "column": 4
+      },
+      "end": {
+        "line": 4,
+        "column": 186
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 5,
+        "column": 4
+      },
+      "end": {
+        "line": 5,
+        "column": 190
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 6,
+        "column": 4
+      },
+      "end": {
+        "line": 6,
+        "column": 202
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 7,
+        "column": 4
+      },
+      "end": {
+        "line": 7,
+        "column": 188
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 8,
+        "column": 4
+      },
+      "end": {
+        "line": 8,
+        "column": 194
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 9,
+        "column": 4
+      },
+      "end": {
+        "line": 9,
+        "column": 194
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 10,
+        "column": 4
+      },
+      "end": {
+        "line": 10,
+        "column": 186
+      }
+    }
+  }
+}
