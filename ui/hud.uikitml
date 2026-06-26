@@ -7,4 +7,5 @@
   <text name="time-display" fontSize="9" color="#ffffff">0:00</text>
   <text name="timer-display" fontSize="9" color="#ffcc00"></text>
   <text name="move-num" fontSize="8" color="#666666">Move 0</text>
+  <text name="draw-warn" fontSize="8" color="#ff4444"></text>
 </container>

@@ -105,6 +105,17 @@
           "color": "#666666"
         },
         "dataUid": "uid-9"
+      },
+      {
+        "sourceTag": "text",
+        "type": "custom",
+        "children": [],
+        "properties": {
+          "name": "draw-warn",
+          "fontsize": "8",
+          "color": "#ff4444"
+        },
+        "dataUid": "uid-10"
       }
     ],
     "properties": {
@@ -126,7 +137,7 @@
         "column": 0
       },
       "end": {
-        "line": 9,
+        "line": 10,
         "column": 12
       }
     },
@@ -208,6 +219,16 @@
       "end": {
         "line": 8,
         "column": 66
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 9,
+        "column": 2
+      },
+      "end": {
+        "line": 9,
+        "column": 61
       }
     }
   }

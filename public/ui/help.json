@@ -205,13 +205,37 @@
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "- R: Replay after game over"
+              "- Tab: Cycle movable pieces"
             ],
             "properties": {
               "fontsize": "9",
               "color": "#888888"
             },
             "dataUid": "uid-19"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- Enter/Space: Confirm move"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-20"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- R: Replay after game over"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-21"
           },
           {
             "sourceTag": "text",
@@ -224,7 +248,7 @@
               "color": "#00ff88",
               "margintop": "3"
             },
-            "dataUid": "uid-20"
+            "dataUid": "uid-22"
           },
           {
             "sourceTag": "text",
@@ -236,19 +260,31 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-21"
+            "dataUid": "uid-23"
           },
           {
             "sourceTag": "text",
             "type": "custom",
             "children": [
-              "- Hover over pieces for highlights"
+              "- Board edges show whose turn it is"
             ],
             "properties": {
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-22"
+            "dataUid": "uid-24"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- Hover multi-jumps to see the path"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-25"
           },
           {
             "sourceTag": "text",
@@ -260,7 +296,19 @@
               "fontsize": "9",
               "color": "#888888"
             },
-            "dataUid": "uid-23"
+            "dataUid": "uid-26"
+          },
+          {
+            "sourceTag": "text",
+            "type": "custom",
+            "children": [
+              "- Draw after 40 non-capture moves"
+            ],
+            "properties": {
+              "fontsize": "9",
+              "color": "#888888"
+            },
+            "dataUid": "uid-27"
           }
         ],
         "properties": {
@@ -287,7 +335,7 @@
           "cursor": "pointer",
           "margintop": "4"
         },
-        "dataUid": "uid-24"
+        "dataUid": "uid-28"
       }
     ],
     "properties": {
@@ -306,7 +354,7 @@
         "column": 0
       },
       "end": {
-        "line": 25,
+        "line": 29,
         "column": 12
       }
     },
@@ -326,7 +374,7 @@
         "column": 2
       },
       "end": {
-        "line": 23,
+        "line": 27,
         "column": 14
       }
     },
@@ -497,7 +545,7 @@
       },
       "end": {
         "line": 19,
-        "column": 65
+        "column": 73
       }
     },
     "uid-21": {
@@ -507,7 +555,7 @@
       },
       "end": {
         "line": 20,
-        "column": 80
+        "column": 73
       }
     },
     "uid-22": {
@@ -517,7 +565,7 @@
       },
       "end": {
         "line": 21,
-        "column": 80
+        "column": 65
       }
     },
     "uid-23": {
@@ -527,16 +575,56 @@
       },
       "end": {
         "line": 22,
-        "column": 75
+        "column": 80
       }
     },
     "uid-24": {
       "start": {
+        "line": 23,
+        "column": 4
+      },
+      "end": {
+        "line": 23,
+        "column": 81
+      }
+    },
+    "uid-25": {
+      "start": {
         "line": 24,
-        "column": 2
+        "column": 4
       },
       "end": {
         "line": 24,
+        "column": 81
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 25,
+        "column": 4
+      },
+      "end": {
+        "line": 25,
+        "column": 75
+      }
+    },
+    "uid-27": {
+      "start": {
+        "line": 26,
+        "column": 4
+      },
+      "end": {
+        "line": 26,
+        "column": 79
+      }
+    },
+    "uid-28": {
+      "start": {
+        "line": 28,
+        "column": 2
+      },
+      "end": {
+        "line": 28,
         "column": 108
       }
     }

@@ -16,11 +16,15 @@
     <text fontSize="9" color="#888888">- VR: Point and trigger to interact</text>
     <text fontSize="9" color="#888888">- ESC: Pause game</text>
     <text fontSize="9" color="#888888">- U: Undo last move</text>
+    <text fontSize="9" color="#888888">- Tab: Cycle movable pieces</text>
+    <text fontSize="9" color="#888888">- Enter/Space: Confirm move</text>
     <text fontSize="9" color="#888888">- R: Replay after game over</text>
     <text fontSize="10" color="#00ff88" marginTop="3">Tips</text>
     <text fontSize="9" color="#888888">- Movable pieces glow on your turn</text>
-    <text fontSize="9" color="#888888">- Hover over pieces for highlights</text>
+    <text fontSize="9" color="#888888">- Board edges show whose turn it is</text>
+    <text fontSize="9" color="#888888">- Hover multi-jumps to see the path</text>
     <text fontSize="9" color="#888888">- Red squares = capture moves</text>
+    <text fontSize="9" color="#888888">- Draw after 40 non-capture moves</text>
   </container>
   <text name="btn-back" fontSize="12" color="#666666" padding="4" cursor="pointer" marginTop="4">BACK</text>
 </container>

@@ -483,6 +483,121 @@ function updateAnimations(dt: number) {
 }
 
 // ============================================================
+// CELEBRATION PARTICLES
+// ============================================================
+function spawnCelebration(won: boolean) {
+  celebrationActive = true;
+  celebrationTimer = 3.0;
+  const th = THEMES[save.selectedTheme];
+  const colors = won
+    ? ['#ffcc00', '#00ffff', '#ff00ff', '#00ff88', th.accent]
+    : ['#ff2244', '#880000', '#440000', '#ff4444'];
+  const count = won ? 60 : 30;
+  for (let i = 0; i < count; i++) {
+    const geo = new SphereGeometry(0.006 + Math.random()*0.008, 6, 6);
+    const col = colors[Math.floor(Math.random()*colors.length)];
+    const mat = new MeshBasicMaterial({ color: new Color(col), transparent: true, opacity: 1 });
+    const mesh = new Mesh(geo, mat);
+    const cx = (Math.random()-0.5)*0.6;
+    const cz = (Math.random()-0.5)*0.6 - 0.5;
+    mesh.position.set(cx, BOARD_Y + 0.1, cz);
+    boardGroup.add(mesh);
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.4 + Math.random() * 0.8;
+    const upSpeed = won ? (1.0 + Math.random()*1.5) : (0.3 + Math.random()*0.6);
+    celebrationParticles.push({
+      mesh,
+      vx: Math.cos(angle) * speed,
+      vy: upSpeed,
+      vz: Math.sin(angle) * speed,
+      life: 1.5 + Math.random()*1.5,
+      maxLife: 1.5 + Math.random()*1.5,
+      rotSpeed: (Math.random()-0.5)*8,
+    });
+  }
+}
+
+function updateCelebration(dt: number) {
+  if (!celebrationActive) return;
+  celebrationTimer -= dt;
+  for (let i = celebrationParticles.length-1; i >= 0; i--) {
+    const p = celebrationParticles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      boardGroup.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      (p.mesh.material as MeshBasicMaterial).dispose();
+      celebrationParticles.splice(i, 1);
+    } else {
+      p.mesh.position.x += p.vx * dt;
+      p.mesh.position.y += p.vy * dt;
+      p.mesh.position.z += p.vz * dt;
+      p.vy -= 1.5 * dt;
+      p.mesh.rotation.x += p.rotSpeed * dt;
+      p.mesh.rotation.z += p.rotSpeed * dt * 0.7;
+      const alpha = Math.min(1, p.life / (p.maxLife * 0.3));
+      (p.mesh.material as MeshBasicMaterial).opacity = alpha;
+      const scale = 0.6 + (p.life / p.maxLife) * 0.6;
+      p.mesh.scale.setScalar(scale);
+    }
+  }
+  if (celebrationParticles.length === 0) celebrationActive = false;
+}
+
+// ============================================================
+// CAPTURE CHAIN PATH PREVIEW
+// ============================================================
+function clearChainPath() {
+  for (const m of chainPathMeshes) boardGroup.remove(m);
+  chainPathMeshes = [];
+}
+
+function showChainPath(move: Move) {
+  clearChainPath();
+  if (move.captures.length < 2) return;
+  const th = THEMES[save.selectedTheme];
+  // Show intermediate capture points with small markers
+  const dotGeo = new SphereGeometry(0.006, 6, 6);
+  for (const cap of move.captures) {
+    const pos = cellToWorld(cap.r, cap.c);
+    const mat = new MeshBasicMaterial({ color: new Color('#ff4444'), transparent: true, opacity: 0.6 });
+    const dot = new Mesh(dotGeo, mat);
+    dot.position.set(pos.x, 0.015, pos.z);
+    boardGroup.add(dot);
+    chainPathMeshes.push(dot);
+  }
+  // Draw path lines from → captures → to using thin box segments
+  const points: {x:number,z:number}[] = [cellToWorld(move.from.r, move.from.c)];
+  // Reconstruct intermediate landing positions from capture sequence
+  let curR = move.from.r, curC = move.from.c;
+  for (const cap of move.captures) {
+    const dr = cap.r - curR > 0 ? 1 : -1;
+    const dc = cap.c - curC > 0 ? 1 : -1;
+    const landR = cap.r + dr;
+    const landC = cap.c + dc;
+    points.push(cellToWorld(landR, landC));
+    curR = landR;
+    curC = landC;
+  }
+  // Draw segments
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i];
+    const to = points[i+1];
+    const dx = to.x - from.x;
+    const dz = to.z - from.z;
+    const len = Math.sqrt(dx*dx + dz*dz);
+    const angle = Math.atan2(dx, dz);
+    const segGeo = new BoxGeometry(0.004, 0.002, len);
+    const segMat = new MeshBasicMaterial({ color: new Color('#ff8844'), transparent: true, opacity: 0.4 });
+    const seg = new Mesh(segGeo, segMat);
+    seg.position.set(from.x + dx*0.5, 0.012, from.z + dz*0.5);
+    seg.rotation.y = angle;
+    boardGroup.add(seg);
+    chainPathMeshes.push(seg);
+  }
+}
+
+// ============================================================
 // GAME STATE (module-level)
 // ============================================================
 let save = loadSave();
@@ -540,6 +655,30 @@ let lastMoveHighlights: Mesh[] = [];
 // Turn transition flash
 let turnFlashTimer = 0;
 const TURN_FLASH_DUR = 0.4;
+
+// Tab cycling through movable pieces
+let tabCycleIndex = -1;
+
+// Draw detection — non-capture move counter
+let nonCaptureMoveCount = 0;
+const DRAW_THRESHOLD = 40;
+
+// Victory celebration
+interface CelebrationParticle {
+  mesh: Mesh;
+  vx: number; vy: number; vz: number;
+  life: number; maxLife: number;
+  rotSpeed: number;
+}
+let celebrationParticles: CelebrationParticle[] = [];
+let celebrationActive = false;
+let celebrationTimer = 0;
+
+// Capture chain path preview
+let chainPathMeshes: Mesh[] = [];
+
+// Board turn color — edges glow differently per turn
+let boardTurnColor: PieceColor = 'red';
 
 // 3D objects
 let boardGroup: Group;
@@ -611,10 +750,11 @@ class Panels {
         piecesLost = prev.piecesLost;
         allMoves = getAllMoves(board, 'red');
         selected = null; validMoves = [];
-        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
+        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights(); clearChainPath();
         // Remove last 2 log entries (player + AI)
         if (moveLog.length >= 2) { moveLog.splice(moveLog.length-2, 2); totalMoveCount = Math.max(0, totalMoveCount-2); }
         undoAvailable = moveHistory.length >= 2;
+        tabCycleIndex = -1;
         screen = 'playing'; this.vis();
         this.updHistory();
         this.showToast('Move undone');
@@ -666,6 +806,12 @@ class Panels {
     this.st('hud','diff-display',diffs[difficulty]);
     this.st('hud','mode-display',mode.toUpperCase());
     this.st('hud','move-num',`Move ${totalMoveCount}`);
+    // Draw warning when approaching threshold
+    if (nonCaptureMoveCount >= 30) {
+      this.st('hud','draw-warn',`Draw in ${DRAW_THRESHOLD - nonCaptureMoveCount}`);
+    } else {
+      this.st('hud','draw-warn','');
+    }
     if (mode==='timed'||mode==='blitz') {
       const tm=Math.floor(timerSec/60), ts=Math.floor(timerSec%60);
       this.st('hud','timer-display',`${tm}:${ts<10?'0':''}${ts}`);
@@ -728,16 +874,21 @@ class Panels {
   }
 
   updGameover(winner: PieceColor|'draw') {
+    const diffs = ['Easy','Medium','Hard'];
+    this.st('gameover','result-diff',`${mode.toUpperCase()} | ${diffs[difficulty]} AI`);
     if (winner==='draw') {
       this.st('gameover','result-text','DRAW');
-      this.st('gameover','result-detail','Neither side could win');
+      this.st('gameover','result-detail','No captures for 40 moves');
+      this.st('gameover','result-draw-info',`${totalMoveCount} moves played`);
     } else if (winner==='red') {
       this.st('gameover','result-text','YOU WIN!');
       const mm = Math.floor(gameDuration/60), ss = Math.floor(gameDuration%60);
       this.st('gameover','result-detail',`${playerCaptures} captures | ${playerKingsThisGame} kings | ${mm}:${ss<10?'0':''}${ss} | ${totalMoveCount} moves`);
+      this.st('gameover','result-draw-info',piecesLost===0?'FLAWLESS VICTORY!':'');
     } else {
       this.st('gameover','result-text','AI WINS');
       this.st('gameover','result-detail',`AI captured ${aiCaptures} pieces in ${totalMoveCount} moves`);
+      this.st('gameover','result-draw-info','');
     }
   }
 
@@ -795,6 +946,12 @@ function startGame() {
   moveHistory=[]; undoAvailable=false;
   moveLog=[]; totalMoveCount=0;
   lastMoveFrom=null; lastMoveTo=null;
+  tabCycleIndex=-1; nonCaptureMoveCount=0;
+  celebrationActive=false; celebrationTimer=0;
+  for (const cp of celebrationParticles) { boardGroup.remove(cp.mesh); cp.mesh.geometry.dispose(); (cp.mesh.material as MeshBasicMaterial).dispose(); }
+  celebrationParticles=[];
+  clearChainPath();
+  boardTurnColor='red';
   if (mode==='timed') timerSec=300; else if (mode==='blitz') timerSec=120; else timerSec=0;
   allMoves=getAllMoves(board,'red');
   syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
@@ -824,6 +981,9 @@ function endGame(winner: PieceColor|'draw') {
     save.highScores=save.highScores.slice(0,20);
   } else { save.currentStreak=0; if (winner!=='draw') sfxLose(); }
   writeSave(save); checkAchievements(); panels.updGameover(winner); screen='gameover'; panels.vis();
+  // Celebration particles
+  if (winner === 'red') spawnCelebration(true);
+  else if (winner === 'black') spawnCelebration(false);
   // Fade drone down
   setDroneLevel(0.01);
 }
@@ -833,7 +993,7 @@ function handleCellClick(r: number, c: number) {
   const cell=board[r][c];
   if (cell.piece==='red') {
     const pm=allMoves.filter(m=>m.from.r===r&&m.from.c===c);
-    if (pm.length>0) { selected={r,c}; validMoves=pm; sfxSelect(); showHighlights(); }
+    if (pm.length>0) { selected={r,c}; validMoves=pm; sfxSelect(); showHighlights(); tabCycleIndex=-1; }
     return;
   }
   if (selected) {
@@ -868,7 +1028,8 @@ function applyPlayerMove(move: Move) {
     save.maxChainJump=Math.max(save.maxChainJump,move.captures.length);
     save.kingCaptures+=(wasKing?move.captures.length:0);
     sfxCapture();
-  } else sfxMove();
+    nonCaptureMoveCount=0;
+  } else { sfxMove(); nonCaptureMoveCount++; }
   if (!wasKing&&board[move.to.r][move.to.c].king) { playerKingsThisGame++; sfxKing(); }
   selected=null; validMoves=[]; clearHighlights();
 
@@ -881,7 +1042,9 @@ function applyPlayerMove(move: Move) {
     const w=checkWinnerStatic(board);
     if (w) { endGame(w); return; }
     if (getAllMoves(board,'black').length===0) { endGame('red'); return; }
+    if (nonCaptureMoveCount >= DRAW_THRESHOLD) { endGame('draw'); return; }
     turn='black'; allMoves=getAllMoves(board,'black');
+    boardTurnColor='black';
     triggerTurnFlash();
     doAiTurn();
   });
@@ -913,7 +1076,8 @@ function doAiTurn() {
 
     board=executeMove(board,move);
     aiCaptures+=move.captures.length;
-    if (move.captures.length>0) { piecesLost+=move.captures.length; sfxCapture(); } else sfxMove();
+    if (move.captures.length>0) { piecesLost+=move.captures.length; sfxCapture(); nonCaptureMoveCount=0; }
+    else { sfxMove(); nonCaptureMoveCount++; }
     if (!wasKing&&board[move.to.r][move.to.c].king) sfxKing();
     const deficit=countPieces(board,'black')-countPieces(board,'red');
     if (deficit>worstDeficit) worstDeficit=deficit;
@@ -932,7 +1096,9 @@ function doAiTurn() {
       const w=checkWinnerStatic(board);
       if (w) { endGame(w); aiThinking=false; return; }
       if (getAllMoves(board,'red').length===0) { endGame('black'); aiThinking=false; return; }
+      if (nonCaptureMoveCount >= DRAW_THRESHOLD) { endGame('draw'); aiThinking=false; return; }
       turn='red'; allMoves=getAllMoves(board,'red'); aiThinking=false;
+      boardTurnColor='red';
       triggerTurnFlash();
     });
   }, 300+Math.random()*400);
@@ -1103,7 +1269,7 @@ function clearHighlights() {
 }
 
 function showHighlights() {
-  clearHighlights(); const th=THEMES[save.selectedTheme];
+  clearHighlights(); clearChainPath(); const th=THEMES[save.selectedTheme];
   if (selected) {
     const p=cellToWorld(selected.r,selected.c);
     const rg=new RingGeometry(PIECE_RADIUS-0.005,PIECE_RADIUS+0.005,24);
@@ -1136,6 +1302,12 @@ function updateHoverEffect(r: number, c: number) {
     hoverMesh.position.set(pos.x, 0.009, pos.z);
     hoverMesh.visible = true;
     hoveredCell = { r, c };
+    // Show chain path for multi-capture moves on hover
+    if (isValidTarget && selected) {
+      const move = validMoves.find(m => m.to.r === r && m.to.c === c);
+      if (move && move.captures.length >= 2) showChainPath(move);
+      else clearChainPath();
+    } else clearChainPath();
   } else {
     hoverMesh.visible = false;
     hoveredCell = null;
@@ -1222,16 +1394,30 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
 
     // Animations
     updateAnimations(dt);
+    updateCelebration(dt);
 
     // Highlight pulse
     const pulse=Math.sin(Date.now()*0.005)*0.3+0.5;
     for (const h of highlightMeshes) (h.material as MeshBasicMaterial).opacity=pulse;
     if (selectedHighlight) (selectedHighlight.material as MeshBasicMaterial).opacity=pulse;
 
-    // Board edge glow pulse
+    // Chain path pulse
+    for (const cp of chainPathMeshes) {
+      (cp.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(Date.now()*0.006)*0.2;
+    }
+
+    // Board edge glow pulse — color shifts by turn
     const edgePulse = 0.3 + Math.sin(Date.now()*0.002)*0.2;
+    const turnEdgeColor = screen === 'playing'
+      ? (boardTurnColor === 'red' ? new Color('#ff4444') : new Color('#00ffff'))
+      : new Color(THEMES[save.selectedTheme].accent);
     for (const edge of boardEdgeMeshes) {
-      (edge.material as MeshStandardMaterial).emissiveIntensity = edgePulse;
+      const mat = edge.material as MeshStandardMaterial;
+      mat.emissiveIntensity = edgePulse;
+      if (screen === 'playing') {
+        mat.color.lerp(turnEdgeColor, 0.05);
+        mat.emissive.lerp(turnEdgeColor, 0.05);
+      }
     }
 
     // Turn flash effect — brief bright flash on board edges
@@ -1289,11 +1475,32 @@ export class GameSystem extends createSystem({ panelDocs: { required: [PanelDocu
         piecesLost = prev.piecesLost;
         allMoves = getAllMoves(board, 'red');
         selected = null; validMoves = [];
-        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights();
+        syncBoardVisuals(); clearHighlights(); clearLastMoveHighlights(); clearChainPath();
         if (moveLog.length >= 2) { moveLog.splice(moveLog.length-2, 2); totalMoveCount = Math.max(0, totalMoveCount-2); }
         undoAvailable = moveHistory.length >= 2;
         panels.updHistory();
         panels.showToast('Move undone');
+      }
+      // Tab cycling through movable pieces
+      if (inp.keyboard.getKeyDown('Tab')&&screen==='playing'&&turn==='red'&&!aiThinking&&!animating) {
+        const movablePieces: Pos[] = [];
+        const seen = new Set<string>();
+        for (const m of allMoves) {
+          const key = `${m.from.r},${m.from.c}`;
+          if (!seen.has(key)) { seen.add(key); movablePieces.push(m.from); }
+        }
+        if (movablePieces.length > 0) {
+          tabCycleIndex = (tabCycleIndex + 1) % movablePieces.length;
+          const pos = movablePieces[tabCycleIndex];
+          selected = pos;
+          validMoves = allMoves.filter(m => m.from.r === pos.r && m.from.c === pos.c);
+          sfxSelect();
+          showHighlights();
+        }
+      }
+      // Enter/Space to confirm first valid move for selected piece
+      if ((inp.keyboard.getKeyDown('Enter')||inp.keyboard.getKeyDown('Space'))&&screen==='playing'&&selected&&validMoves.length>0&&!animating&&!aiThinking) {
+        applyPlayerMove(validMoves[0]);
       }
     }
   }
